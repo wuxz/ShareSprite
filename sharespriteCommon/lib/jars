@@ -1,0 +1,15 @@
+// message和 search
+activemq-core-5.2.0.jar
+activation.jar
+apache-solr-solrj-1.4.1.jar
+commons-codec-1.4.jar
+commons-httpclient-3.1.jar
+commons-lang-2.4.jar
+geronimo-j2ee-management_1.0_spec-1.0.jar
+geronimo-jms_1.1_spec-1.1.1.jar
+geronimo-jta_1.0.1B_spec-1.0.1.jar
+jdom-1.0.jar
+json_simple-1.1.jar
+c3p0-0.9.1.2.jar
+mysql-connector-java-5.1.12.jar
+urlshorter.jar
