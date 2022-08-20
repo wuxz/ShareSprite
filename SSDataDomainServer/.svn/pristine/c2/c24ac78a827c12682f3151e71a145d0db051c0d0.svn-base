@@ -1,0 +1,98 @@
+package com.zhuaiwa.dd.hector;
+
+import java.util.Iterator;
+
+import me.prettyprint.cassandra.serializers.AbstractSerializer;
+import me.prettyprint.hector.api.Keyspace;
+import me.prettyprint.hector.api.beans.OrderedSuperRows;
+import me.prettyprint.hector.api.beans.SuperRow;
+import me.prettyprint.hector.api.factory.HFactory;
+import me.prettyprint.hector.api.query.QueryResult;
+import me.prettyprint.hector.api.query.RangeSuperSlicesQuery;
+
+public class SuperRowIterator<K, SN, N, V> implements Iterable<SuperRow<K, SN, N, V>>, Iterator<SuperRow<K, SN, N, V>> {
+    private Iterator<SuperRow<K, SN, N, V>> rowsIterator = null;
+
+    private RangeSuperSlicesQuery<K, SN, N, V> query = null;
+
+    private K startKey = null;
+    private K endKey = null;
+    private int pageSize;
+    
+    AbstractSerializer<K> keySerializer;
+    AbstractSerializer<SN> snameSerializer;
+    AbstractSerializer<N> nameSerializer;
+    AbstractSerializer<V> valueSerializer;
+    
+    private SuperRow<K, SN, N, V> lastRow = null;
+
+    public SuperRowIterator(Keyspace keyspace, String columnFamily, K startKey, K endKey, int pageSize, AbstractSerializer<K> keySerializer,
+            AbstractSerializer<SN> snameSerializer, AbstractSerializer<N> nameSerializer, AbstractSerializer<V> valueSerializer) {
+        this.startKey = startKey;
+        this.endKey = endKey;
+        this.pageSize = pageSize;
+        
+        this.keySerializer = keySerializer;
+        this.snameSerializer = snameSerializer;
+        this.nameSerializer = nameSerializer;
+        this.valueSerializer = valueSerializer;
+        
+        this.query = HFactory.createRangeSuperSlicesQuery(keyspace, keySerializer, snameSerializer, nameSerializer, valueSerializer);
+        this.query.setColumnFamily(columnFamily);
+        this.query.setRange(null, null, false, Integer.MAX_VALUE);
+        this.query.setRowCount(this.pageSize);
+    }
+    
+    public void setSliceRange(SN start, SN finish, boolean reversed, int count) {
+        this.query.setRange(start, finish, reversed, count);
+    }
+
+    private void runQuery(K start) {
+        query.setKeys(start, this.endKey);
+
+        rowsIterator = null;
+        QueryResult<OrderedSuperRows<K, SN, N, V>> result = query.execute();
+        OrderedSuperRows<K, SN, N, V> rows = (result != null) ? result.get() : null;
+        rowsIterator = (rows != null) ? rows.iterator() : null;
+
+        if (lastRow != null && rowsIterator != null && rowsIterator.hasNext()) {
+            rowsIterator.next();
+        }
+    }
+
+    @Override
+    public Iterator<SuperRow<K, SN, N, V>> iterator() {
+        return this;
+    }
+
+    @Override
+    public boolean hasNext() {
+        if (rowsIterator == null) {
+            runQuery(this.startKey);
+            if (rowsIterator == null || !rowsIterator.hasNext())
+                return false;
+        }
+        if (!rowsIterator.hasNext()) {
+            if (this.lastRow == null)
+                return false;
+            runQuery(this.lastRow.getKey());
+            if (rowsIterator == null || !rowsIterator.hasNext())
+                return false;
+        }
+        return true;
+    }
+
+    @Override
+    public SuperRow<K, SN, N, V> next() {
+        if (!hasNext())
+            return null;
+        SuperRow<K, SN, N, V> row = rowsIterator.next();
+        this.lastRow = row;
+        return row;
+    }
+
+    @Override
+    public void remove() {
+        throw new UnsupportedOperationException();
+    }
+}

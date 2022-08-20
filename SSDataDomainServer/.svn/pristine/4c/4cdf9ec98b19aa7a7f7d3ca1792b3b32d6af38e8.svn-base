@@ -1,0 +1,252 @@
+package com.zhuaiwa.dd;
+
+import java.io.File;
+import java.net.InetSocketAddress;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+
+import me.prettyprint.hector.api.Keyspace;
+
+import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.protobuf.Service;
+import com.zhuaiwa.api.SSDataDomain.SSDataDomainSvc;
+import com.zhuaiwa.api.netty.server.NettyRpcServer;
+import com.zhuaiwa.dd.api.DataDomainApi;
+import com.zhuaiwa.dd.api.SSDataDomainSvcImpl;
+import com.zhuaiwa.dd.api.SSDataDomainSvcWithIndexer;
+import com.zhuaiwa.dd.config.DDProperties;
+import com.zhuaiwa.dd.dao.AccountDao;
+import com.zhuaiwa.dd.dao.FollowerDao;
+import com.zhuaiwa.dd.dao.FollowingDao;
+import com.zhuaiwa.dd.dao.MessageDao;
+import com.zhuaiwa.dd.dao.ProfileDao;
+import com.zhuaiwa.dd.hector.HectorFactory;
+import com.zhuaiwa.dd.log.JMXLog4jConfigurator;
+import com.zhuaiwa.dd.protobuf.DataDomainApiProtobufExtension;
+import com.zhuaiwa.dd.service.impl.DataServiceImpl;
+
+public class SSDataDomainServer {
+    private static Logger logger = LoggerFactory.getLogger(SSDataDomainServer.class);
+    private NettyRpcServer server;
+    private Keyspace cassandra;
+    private SSDataDomainSvcAsync asyncSvc;
+    private DataDomainApi api;
+	private ExecutorService repairService;
+    
+    private boolean hasCmdSetting = false;
+    private String host;
+    private int port = 29163;
+    
+    public void setCassandraServer(Keyspace cassandraServer) {
+		this.cassandra = cassandraServer;
+	}
+
+	public Keyspace getCassandraServer() {
+		return cassandra;
+	}
+
+
+	public void init(String[] args)
+    {
+		if (args.length > 0) {
+			for (int i = 0; i < args.length; i++) {
+				if (args[i].equalsIgnoreCase("-host")) {
+					i++;
+					host = args[i];
+					hasCmdSetting = true;
+				} else if (args[i].equalsIgnoreCase("-port")) {
+					i++;
+					port = Integer.valueOf(args[i]);
+					hasCmdSetting = true;
+				}
+			}
+		}
+		DataDomainApiProtobufExtension.register();
+		
+		// rpc
+		server = new NettyRpcServer(new NioServerSocketChannelFactory(Executors
+				.newCachedThreadPool(), Executors.newCachedThreadPool()));
+		
+		// repair executor
+		repairService = new ThreadPoolExecutor(
+				1,1,60,TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());
+		
+		// dataservice
+		DataServiceImpl dataService = new DataServiceImpl(cassandra);
+		dataService.setRepairService(repairService);
+        
+        // zookeeper
+//      ClusterMutex mutex = ClusterMutex.instance();
+		
+		//dao
+        AccountDao accountDao = new AccountDao();
+        accountDao.setKeyspace(cassandra);
+        ProfileDao profileDao = new ProfileDao();
+        profileDao.setKeyspace(cassandra);
+        FollowingDao followingDao = new FollowingDao();
+        followingDao.setKeyspace(cassandra);
+        FollowerDao followerDao = new FollowerDao();
+        followerDao.setKeyspace(cassandra);
+        MessageDao messageDao = new MessageDao();
+        messageDao.setKeyspace(cassandra);
+		
+        boolean enabledIndexer = Boolean.parseBoolean(DDProperties.getProperty("dd.indexer.enabled", "false"));
+        logger.info("dd.indexer.enabled : " + enabledIndexer);
+        if (enabledIndexer) {
+            api = new SSDataDomainSvcWithIndexer();
+        } else {
+            api = new SSDataDomainSvcImpl();
+        }
+		((SSDataDomainSvcImpl)api).setCassandra(cassandra);
+		((SSDataDomainSvcImpl)api).setDataService(dataService);
+		((SSDataDomainSvcImpl)api).setRepairService(repairService);
+		((SSDataDomainSvcImpl)api).setAccountDao(accountDao);
+		((SSDataDomainSvcImpl)api).setProfileDao(profileDao);
+		((SSDataDomainSvcImpl)api).setFollowingDao(followingDao);
+        ((SSDataDomainSvcImpl)api).setFollowerDao(followerDao);
+        ((SSDataDomainSvcImpl)api).setMessageDao(messageDao);
+		((SSDataDomainSvcImpl)api).Initialize();
+		
+		// 接口
+		asyncSvc = new SSDataDomainSvcAsync();
+		asyncSvc.setImpl(api);
+		Service svc = SSDataDomainSvc.newReflectiveService(asyncSvc);
+		server.registerDefaultService(svc, null);
+		server.registerVersionService(svc, 0x00010000, null);
+		
+//		// dao
+//		MessageDaoImpl messageDao = new MessageDaoImpl();
+//		messageDao.setCassandra(cassandraServer);
+//		PubBoxDaoImpl pubBoxDao = new PubBoxDaoImpl();
+//		pubBoxDao.setCassandra(cassandraServer);
+//		InBoxDaoImpl inBoxDao = new InBoxDaoImpl();
+//		inBoxDao.setCassandra(cassandraServer);
+//		OutBoxDaoImpl outBoxDao = new OutBoxDaoImpl();
+//		outBoxDao.setCassandra(cassandraServer);
+//		FavoriteDaoImpl favBoxDao = new FavoriteDaoImpl();
+//		favBoxDao.setCassandra(cassandraServer);
+//		AccountDaoImpl accountDao = new AccountDaoImpl();
+//		accountDao.setCassandra(cassandraServer);
+//		ProfileDaoImpl profileDao = new ProfileDaoImpl();
+//		profileDao.setCassandra(cassandraServer);
+//		EmailAccountDaoImpl emailAccountDao = new EmailAccountDaoImpl();
+//		emailAccountDao.setCassandra(cassandraServer);
+//		PhoneAccountDaoImpl phoneAccountDao = new PhoneAccountDaoImpl();
+//		phoneAccountDao.setCassandra(cassandraServer);
+//		FollowingDaoImpl followingDao = new FollowingDaoImpl();
+//		followingDao.setCassandra(cassandraServer);
+//		FollowerDaoImpl followerDao = new FollowerDaoImpl();
+//		followerDao.setCassandra(cassandraServer);
+//		ContactDaoImpl contactDao = new ContactDaoImpl();
+//		contactDao.setCassandra(cassandraServer);
+//		GroupDaoImpl groupDao = new GroupDaoImpl();
+//		groupDao.setCassandra(cassandraServer);
+//		MemberDaoImpl memberDao = new MemberDaoImpl();
+//		memberDao.setCassandra(cassandraServer);
+//		
+//		// service
+//		messageService = new MessageServiceImpl();
+//		messageService.setMessageDao(messageDao);
+//		messageService.setPubBoxDao(pubBoxDao);
+//		messageService.setInBoxDao(inBoxDao);
+//		messageService.setOutBoxDao(outBoxDao);
+//		messageService.setFavBoxDao(favBoxDao);
+//		
+//		userService = new UserServiceImpl();
+//		userService.setAccountDao(accountDao);
+//		userService.setProfileDao(profileDao);
+//		userService.setPhoneAccountDao(phoneAccountDao);
+//		userService.setEmailAccountDao(emailAccountDao);
+//		userService.setFollowerDao(followerDao);
+//		userService.setFollowingDao(followingDao);
+//		
+//		contactService = new ContactServiceImpl();
+//		contactService.setContactDao(contactDao);
+//		contactService.setGroupDao(groupDao);
+//		contactService.setMemberDao(memberDao);
+    }
+
+//	MessageServiceImpl messageService;
+//	UserServiceImpl userService;
+//	ContactServiceImpl contactService;
+	
+	public void start()
+    {
+        logger.info("SSDataDomainServer starting up...");
+        InetSocketAddress address = null;
+        if (hasCmdSetting) {
+	        if (host == null) {
+	        	address = new InetSocketAddress(port);
+	        } else {
+	        	address = new InetSocketAddress(host, port);
+	        }
+        } else {
+	        if (DDProperties.getListenAddress() == null) {
+	        	address = new InetSocketAddress(DDProperties.getListenPort());
+	        } else {
+	        	address = new InetSocketAddress(DDProperties.getListenAddress(), DDProperties.getListenPort());
+	        }
+        }
+        server.serve(address);
+    }
+
+    public void stop()
+    {
+    }
+    
+    public void destroy()
+    {
+        ((SSDataDomainSvcImpl)api).Dispose();
+    }
+    
+	public static void main(String[] args) {
+	    JMXLog4jConfigurator.config();
+        
+	    Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler()
+        {
+            public void uncaughtException(Thread t, Throwable e)
+            {
+                logger.error("Uncaught exception in thread " + t, e);
+                if (e instanceof OutOfMemoryError)
+                {
+                    System.exit(100);
+                }
+            }
+        });
+	    
+        try {
+            SSDataDomainServer s = new SSDataDomainServer();
+            s.setCassandraServer(HectorFactory.getKeyspace());
+            s.init(args);
+            
+            String pidFile = System.getProperty("dd.server.pidfile");
+            if (pidFile != null)
+            {
+                new File(pidFile).deleteOnExit();
+            }
+
+            if (System.getProperty("dd.server.foreground") == null)
+            {
+                System.out.close();
+                System.err.close();
+            }
+            
+            s.start();
+        } catch (Throwable e) {
+            String msg = "Exception encountered during startup.";
+            logger.error(msg, e);
+
+            // try to warn user on stdout too, if we haven't already detached
+            System.out.println(msg);
+            e.printStackTrace();
+
+            System.exit(3);
+        }
+	}
+}

@@ -1,0 +1,10 @@
+完成索引服务
+
+1、会话域调用Indexer完成发送activemq消息；
+2、索引服务器读取activemq消息，调用solr完成索引
+
+部署：
+打包：jar_search:注意对sharespriteCommon包的依赖
+部署zhuaiwa_search.jar到is0:/root/
+solr服务部署在/data/tomcat，配置文件及索引库：/data/solr
+启动tomcat，运行zhuaiwa_search.jar（zhuaiwa_search.sh）

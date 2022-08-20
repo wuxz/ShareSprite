@@ -1,0 +1,388 @@
+package com.zhuaiwa.dd.dao;
+
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
+import me.prettyprint.cassandra.serializers.ByteBufferSerializer;
+import me.prettyprint.cassandra.serializers.IntegerSerializer;
+import me.prettyprint.cassandra.serializers.LongSerializer;
+import me.prettyprint.cassandra.serializers.StringSerializer;
+import me.prettyprint.hector.api.beans.ColumnSlice;
+import me.prettyprint.hector.api.beans.HColumn;
+import me.prettyprint.hector.api.beans.Row;
+import me.prettyprint.hector.api.beans.Rows;
+import me.prettyprint.hector.api.factory.HFactory;
+import me.prettyprint.hector.api.mutation.Mutator;
+import me.prettyprint.hector.api.query.ColumnQuery;
+import me.prettyprint.hector.api.query.MultigetSliceQuery;
+import me.prettyprint.hector.api.query.QueryResult;
+import me.prettyprint.hector.api.query.SliceQuery;
+
+import com.zhuaiwa.dd.domain.Account;
+import com.zhuaiwa.dd.domain.EmailAccount;
+import com.zhuaiwa.dd.domain.NameAccount;
+import com.zhuaiwa.dd.domain.PhoneAccount;
+import com.zhuaiwa.dd.hector.RowIterator;
+import com.zhuaiwa.dd.hector.RowWrapper;
+
+public class AccountDao extends AbstractDao<Account> {
+
+    @Override
+    public void insert(Account obj) {
+        Mutator<String> mutator = currentThreadMutator.get();
+        boolean batch = (mutator != null);
+        if (mutator == null) {
+            mutator = HFactory.createMutator(keyspace, StringSerializer.get());
+        }
+        insertPojo(mutator, obj);
+        insertIndex(mutator, obj);
+        if (!batch)
+            mutator.execute();
+    }
+    @Override
+    public void delete(String id) {
+        Mutator<String> mutator = currentThreadMutator.get();
+        boolean batch = (mutator != null);
+        if (mutator == null) {
+            mutator = HFactory.createMutator(keyspace, StringSerializer.get());
+        }
+        mutator.addDeletion(id, Account.CN_ACCOUNT);
+        if (!batch)
+            mutator.execute();
+    }
+    @Override
+    public Account get(String id) {
+        SliceQuery<String,String,ByteBuffer> query = HFactory.createSliceQuery(keyspace, StringSerializer.get(), StringSerializer.get(), ByteBufferSerializer.get());
+        query.setKey(id);
+        query.setColumnFamily(Account.CN_ACCOUNT);
+        query.setRange(null, null, false, Integer.MAX_VALUE);
+        QueryResult<ColumnSlice<String, ByteBuffer>> result = query.execute();
+        return build(new RowWrapper<String, String, ByteBuffer>(id, result.get()));
+    }
+    @Override
+    public void insert(List<Account> objlist) {
+        Mutator<String> mutator = currentThreadMutator.get();
+        boolean batch = (mutator != null);
+        if (mutator == null) {
+            mutator = HFactory.createMutator(keyspace, StringSerializer.get());
+        }
+        for (Account account : objlist) {
+            insertPojo(mutator, account);
+            insertIndex(mutator, account);
+        }
+        if (!batch)
+            mutator.execute();
+    }
+    @Override
+    public void delete(List<String> idlist) {
+        Mutator<String> mutator = HFactory.createMutator(keyspace, StringSerializer.get());
+        for (String id : idlist) {
+            mutator.addDeletion(id, Account.CN_ACCOUNT);
+        }
+        mutator.execute();
+    }
+    @Override
+    public Map<String, Account> get(List<String> idlist) {
+        MultigetSliceQuery<String,String,ByteBuffer> query = HFactory.createMultigetSliceQuery(keyspace, StringSerializer.get(), StringSerializer.get(), ByteBufferSerializer.get());
+        query.setKeys(idlist);
+        query.setColumnFamily(Account.CN_ACCOUNT);
+        query.setRange(null, null, false, Integer.MAX_VALUE);
+        QueryResult<Rows<String, String, ByteBuffer>> result = query.execute();
+        
+        Map<String, Account> accounts = new HashMap<String, Account>();
+        Rows<String, String, ByteBuffer> rows = result.get();
+        if (rows == null)
+            return accounts;
+        for (Row<String, String, ByteBuffer> row : rows) {
+            Account account = build(row);
+            if (account != null) {
+                accounts.put(row.getKey(), account);
+            }
+        }
+        return accounts;
+    }
+    @Override
+    public Iterator<Account> getAll(int pageSize) {
+        final RowIterator<String, String, ByteBuffer> iterator = new RowIterator<String, String, ByteBuffer>(keyspace, Account.CN_ACCOUNT, null, null, 100,
+                StringSerializer.get(), StringSerializer.get(), ByteBufferSerializer.get());
+        return new Iterator<Account>() {
+            @Override
+            public boolean hasNext() {
+                return iterator.hasNext();
+            }
+            @Override
+            public Account next() {
+                Row<String, String, ByteBuffer> row = iterator.next();
+                if (row == null)
+                    return null;
+                return build(row);
+            }
+            @Override
+            public void remove() {
+                throw new UnsupportedOperationException();
+            }
+        };
+    }
+    
+    public String getUseridByEmail(String email) {
+        ColumnQuery<String, String, String> query = HFactory.createColumnQuery(keyspace, StringSerializer.get(), StringSerializer.get(), StringSerializer.get());
+        query.setKey(email);
+        query.setColumnFamily(EmailAccount.CN_EMAIL_ACCOUNT);
+        query.setName(EmailAccount.FN_USERID);
+        QueryResult<HColumn<String, String>> result = query.execute();
+        HColumn<String, String> column = (result == null ? null : result.get());
+        return column == null ? null : column.getValue();
+    }
+    
+    public String getUseridByPhone(String phone) {
+        ColumnQuery<String, String, String> query = HFactory.createColumnQuery(keyspace, StringSerializer.get(), StringSerializer.get(), StringSerializer.get());
+        query.setKey(phone);
+        query.setColumnFamily(PhoneAccount.CN_PHONE_ACCOUNT);
+        query.setName(PhoneAccount.FN_USERID);
+        QueryResult<HColumn<String, String>> result = query.execute();
+        HColumn<String, String> column = (result == null ? null : result.get());
+        return column == null ? null : column.getValue();
+    }
+    
+    public String getUseridByName(String name) {
+        ColumnQuery<String, String, String> query = HFactory.createColumnQuery(keyspace, StringSerializer.get(), StringSerializer.get(), StringSerializer.get());
+        query.setKey(name);
+        query.setColumnFamily(NameAccount.CN_NAME_ACCOUNT);
+        query.setName(NameAccount.FN_USERID);
+        QueryResult<HColumn<String, String>> result = query.execute();
+        HColumn<String, String> column = (result == null ? null : result.get());
+        return column == null ? null : column.getValue();
+    }
+    
+    public List<String> getUseridByEmail(List<String> emails) {
+        List<String> userid_list = new ArrayList<String>();
+        
+        MultigetSliceQuery<String,String,ByteBuffer> query = HFactory.createMultigetSliceQuery(keyspace, StringSerializer.get(), StringSerializer.get(), ByteBufferSerializer.get());
+        query.setKeys(emails);
+        query.setColumnFamily(EmailAccount.CN_EMAIL_ACCOUNT);
+        query.setColumnNames(EmailAccount.FN_USERID);
+        QueryResult<Rows<String, String, ByteBuffer>> result = query.execute();
+        Rows<String, String, ByteBuffer> rows = (result == null ? null : result.get());
+        if (rows != null) {
+            for (Row<String, String, ByteBuffer> row : rows) {
+                ColumnSlice<String, ByteBuffer> slice = row.getColumnSlice();
+                HColumn<String, ByteBuffer> column = (slice == null ? null : slice.getColumnByName(EmailAccount.FN_USERID));
+                ByteBuffer value = (column == null ? null : column.getValue());
+                if (value == null) continue;
+                userid_list.add(StringSerializer.get().fromByteBuffer(value));
+            }
+        }
+        return userid_list;
+    }
+    
+    public List<String> getUseridByPhone(List<String> phones) {
+        List<String> userid_list = new ArrayList<String>();
+        
+        MultigetSliceQuery<String,String,ByteBuffer> query = HFactory.createMultigetSliceQuery(keyspace, StringSerializer.get(), StringSerializer.get(), ByteBufferSerializer.get());
+        query.setKeys(phones);
+        query.setColumnFamily(PhoneAccount.CN_PHONE_ACCOUNT);
+        query.setColumnNames(PhoneAccount.FN_USERID);
+        QueryResult<Rows<String, String, ByteBuffer>> result = query.execute();
+        Rows<String, String, ByteBuffer> rows = (result == null ? null : result.get());
+        if (rows != null) {
+            for (Row<String, String, ByteBuffer> row : rows) {
+                ColumnSlice<String, ByteBuffer> slice = row.getColumnSlice();
+                HColumn<String, ByteBuffer> column = (slice == null ? null : slice.getColumnByName(PhoneAccount.FN_USERID));
+                ByteBuffer value = (column == null ? null : column.getValue());
+                if (value == null) continue;
+                userid_list.add(StringSerializer.get().fromByteBuffer(value));
+            }
+        }
+        return userid_list;
+    }
+
+    public List<String> getUseridByName(List<String> names) {
+        List<String> userid_list = new ArrayList<String>();
+        
+        MultigetSliceQuery<String,String,ByteBuffer> query = HFactory.createMultigetSliceQuery(keyspace, StringSerializer.get(), StringSerializer.get(), ByteBufferSerializer.get());
+        query.setKeys(names);
+        query.setColumnFamily(NameAccount.CN_NAME_ACCOUNT);
+        query.setColumnNames(NameAccount.FN_USERID);
+        QueryResult<Rows<String, String, ByteBuffer>> result = query.execute();
+        Rows<String, String, ByteBuffer> rows = (result == null ? null : result.get());
+        if (rows != null) {
+            for (Row<String, String, ByteBuffer> row : rows) {
+                ColumnSlice<String, ByteBuffer> slice = row.getColumnSlice();
+                HColumn<String, ByteBuffer> column = (slice == null ? null : slice.getColumnByName(NameAccount.FN_USERID));
+                ByteBuffer value = (column == null ? null : column.getValue());
+                if (value == null) continue;
+                userid_list.add(StringSerializer.get().fromByteBuffer(value));
+            }
+        }
+        return userid_list;
+    }
+    
+    public static void insertPojo(Mutator<String> mutator, Account account) {
+        String userid = account.getUserid();
+        if (userid == null)
+            throw new IllegalArgumentException("userid can't be empty");
+        mutator.addInsertion(userid, Account.CN_ACCOUNT, createStringColumn(Account.FN_USERID, userid));
+        if (account.getEmail() != null) {
+            mutator.addInsertion(userid, Account.CN_ACCOUNT, createStringColumn(Account.FN_EMAIL, account.getEmail()));
+        }
+        if (account.getPhoneNumber() != null) {
+            mutator.addInsertion(userid, Account.CN_ACCOUNT, createStringColumn(Account.FN_PHONE_NUMBER, account.getPhoneNumber()));
+        }
+        if (account.getPassword() != null) {
+            mutator.addInsertion(userid, Account.CN_ACCOUNT, createStringColumn(Account.FN_PASSWORD, account.getPassword()));
+        }
+        if (account.getFirstLogin() != null) {
+            mutator.addInsertion(userid, Account.CN_ACCOUNT, createIntegerColumn(Account.FN_FIRST_LOGIN, account.getFirstLogin()));
+        }
+        if (account.getIsActivated() != null) {
+            mutator.addInsertion(userid, Account.CN_ACCOUNT, createIntegerColumn(Account.FN_IS_ACTIVATED, account.getIsActivated()));
+        }
+        if (account.getIsEducationHidden() != null) {
+            mutator.addInsertion(userid, Account.CN_ACCOUNT, createIntegerColumn(Account.FN_IS_EDUCATION_HIDDEN, account.getIsEducationHidden()));
+        }
+        if (account.getIsEmailHidden() != null) {
+            mutator.addInsertion(userid, Account.CN_ACCOUNT, createIntegerColumn(Account.FN_IS_EMAIL_HIDDEN, account.getIsEmailHidden()));
+        }
+        if (account.getIsNicknameHidden() != null) {
+            mutator.addInsertion(userid, Account.CN_ACCOUNT, createIntegerColumn(Account.FN_IS_NICKNAME_HIDDEN, account.getIsNicknameHidden()));
+        }
+        if (account.getIsPhoneHidden() != null) {
+            mutator.addInsertion(userid, Account.CN_ACCOUNT, createIntegerColumn(Account.FN_IS_PHONE_HIDDEN, account.getIsPhoneHidden()));
+        }
+        if (account.getIsWorkHidden() != null) {
+            mutator.addInsertion(userid, Account.CN_ACCOUNT, createIntegerColumn(Account.FN_IS_WORK_HIDDEN, account.getIsWorkHidden()));
+        }
+        if (account.getMessageFilter() != null) {
+            mutator.addInsertion(userid, Account.CN_ACCOUNT, createIntegerColumn(Account.FN_MESSAGE_FILTER, account.getMessageFilter()));
+        }
+        if (account.getRegisterTime() != null) {
+            mutator.addInsertion(userid, Account.CN_ACCOUNT, createLongColumn(Account.FN_REGISTER_TIME, account.getRegisterTime()));
+        }
+        if (account.getRole() != null) {
+            mutator.addInsertion(userid, Account.CN_ACCOUNT, createIntegerColumn(Account.FN_ROLE, account.getRole()));
+        }
+        if (account.getSecurityCode() != null) {
+            mutator.addInsertion(userid, Account.CN_ACCOUNT, createStringColumn(Account.FN_SECURITY_CODE, account.getSecurityCode()));
+        }
+        if (account.getSecurityCodeTime() != null) {
+            mutator.addInsertion(userid, Account.CN_ACCOUNT, createLongColumn(Account.FN_SECURITY_CODE_TIME, account.getSecurityCodeTime()));
+        }
+        if (account.getShareForbiddenTime() != null) {
+            mutator.addInsertion(userid, Account.CN_ACCOUNT, createLongColumn(Account.FN_SHARE_FORBIDDEN_TIME, account.getShareForbiddenTime()));
+        }
+    }
+    public static void insertIndex(Mutator<String> mutator, Account account) {
+        String userid = account.getUserid();
+        if (userid == null)
+            throw new IllegalArgumentException("userid can't be empty");
+        if (account.getEmail() != null) {
+            mutator.addInsertion(account.getEmail(), EmailAccount.CN_EMAIL_ACCOUNT, createStringColumn(EmailAccount.FN_USERID, userid));
+            mutator.addInsertion(account.getEmail(), EmailAccount.CN_EMAIL_ACCOUNT, createStringColumn(EmailAccount.FN_EMAIL, account.getEmail()));
+        }
+        if (account.getPhoneNumber() != null) {
+            mutator.addInsertion(account.getPhoneNumber(), PhoneAccount.CN_PHONE_ACCOUNT, createStringColumn(PhoneAccount.FN_USERID, userid));
+            mutator.addInsertion(account.getPhoneNumber(), PhoneAccount.CN_PHONE_ACCOUNT, createStringColumn(PhoneAccount.FN_PHONE_NUMBER, account.getPhoneNumber()));
+        }
+    }
+    private static Account build(Row<String, String, ByteBuffer> row) {
+        if (row == null)
+            return null;
+        
+        ColumnSlice<String, ByteBuffer> slices = row.getColumnSlice();
+        if (slices == null)
+            return null;
+        
+        List<HColumn<String, ByteBuffer>> columns = slices.getColumns();
+        if (columns == null || columns.isEmpty())
+            return null;
+        
+        Account account = new Account();
+        build(account, row);
+        return account;
+    }
+    public static void build(Account account, Row<String, String, ByteBuffer> row) {
+        build(account, row.getKey(), row.getColumnSlice());
+    }
+    public static void build(Account account, String id, ColumnSlice<String, ByteBuffer> slices) {
+        List<HColumn<String, ByteBuffer>> columns = (slices != null ? slices.getColumns() : null);
+        if (columns != null) {
+            for (HColumn<String, ByteBuffer> column : columns) {
+                if (Account.FN_EMAIL.equalsIgnoreCase(column.getName())) {
+                    account.setEmail(StringSerializer.get().fromByteBuffer(column.getValue()));
+                    continue;
+                }
+                if (Account.FN_FIRST_LOGIN.equalsIgnoreCase(column.getName())) {
+                    account.setFirstLogin(IntegerSerializer.get().fromByteBuffer(column.getValue()));
+                    continue;
+                }
+                if (Account.FN_IS_ACTIVATED.equalsIgnoreCase(column.getName())) {
+                    account.setIsActivated(IntegerSerializer.get().fromByteBuffer(column.getValue()));
+                    continue;
+                }
+                if (Account.FN_IS_EDUCATION_HIDDEN.equalsIgnoreCase(column.getName())) {
+                    account.setIsEducationHidden(IntegerSerializer.get().fromByteBuffer(column.getValue()));
+                    continue;
+                }
+                if (Account.FN_IS_EMAIL_HIDDEN.equalsIgnoreCase(column.getName())) {
+                    account.setIsEmailHidden(IntegerSerializer.get().fromByteBuffer(column.getValue()));
+                    continue;
+                }
+                if (Account.FN_IS_NICKNAME_HIDDEN.equalsIgnoreCase(column.getName())) {
+                    account.setIsNicknameHidden(IntegerSerializer.get().fromByteBuffer(column.getValue()));
+                    continue;
+                }
+                if (Account.FN_IS_PHONE_HIDDEN.equalsIgnoreCase(column.getName())) {
+                    account.setIsPhoneHidden(IntegerSerializer.get().fromByteBuffer(column.getValue()));
+                    continue;
+                }
+                if (Account.FN_IS_WORK_HIDDEN.equalsIgnoreCase(column.getName())) {
+                    account.setIsWorkHidden(IntegerSerializer.get().fromByteBuffer(column.getValue()));
+                    continue;
+                }
+                if (Account.FN_MESSAGE_FILTER.equalsIgnoreCase(column.getName())) {
+                    account.setMessageFilter(IntegerSerializer.get().fromByteBuffer(column.getValue()));
+                    continue;
+                }
+                if (Account.FN_PASSWORD.equalsIgnoreCase(column.getName())) {
+                    account.setPassword(StringSerializer.get().fromByteBuffer(column.getValue()));
+                    continue;
+                }
+                if (Account.FN_PHONE_NUMBER.equalsIgnoreCase(column.getName())) {
+                    account.setPhoneNumber(StringSerializer.get().fromByteBuffer(column.getValue()));
+                    continue;
+                }
+                if (Account.FN_REGISTER_TIME.equalsIgnoreCase(column.getName())) {
+                    account.setRegisterTime(LongSerializer.get().fromByteBuffer(column.getValue()));
+                    continue;
+                }
+                if (Account.FN_ROLE.equalsIgnoreCase(column.getName())) {
+                    account.setRole(IntegerSerializer.get().fromByteBuffer(column.getValue()));
+                    continue;
+                }
+                if (Account.FN_SECURITY_CODE.equalsIgnoreCase(column.getName())) {
+                    account.setSecurityCode(StringSerializer.get().fromByteBuffer(column.getValue()));
+                    continue;
+                }
+                if (Account.FN_SECURITY_CODE_TIME.equalsIgnoreCase(column.getName())) {
+                    account.setSecurityCodeTime(LongSerializer.get().fromByteBuffer(column.getValue()));
+                    continue;
+                }
+                if (Account.FN_SHARE_FORBIDDEN_TIME.equalsIgnoreCase(column.getName())) {
+                    account.setShareForbiddenTime(LongSerializer.get().fromByteBuffer(column.getValue()));
+                    continue;
+                }
+                if (Account.FN_USERID.equalsIgnoreCase(column.getName())) {
+                    account.setUserid(StringSerializer.get().fromByteBuffer(column.getValue()));
+                    continue;
+                }
+            }
+        }
+        if (account.getUserid() == null) {
+            account.setUserid(id);
+        }
+    }
+}

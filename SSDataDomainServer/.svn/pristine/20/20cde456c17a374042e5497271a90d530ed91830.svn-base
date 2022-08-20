@@ -1,0 +1,230 @@
+package com.zhuaiwa.dd.api;
+
+import org.junit.After;
+import org.junit.AfterClass;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Test;
+
+import com.google.protobuf.TextFormat;
+import com.zhuaiwa.api.Common.SSBOX;
+import com.zhuaiwa.api.Common.SSMessage;
+import com.zhuaiwa.api.Common.SSMessageType;
+import com.zhuaiwa.api.Common.SSPerson;
+import com.zhuaiwa.api.Common.SSResultCode;
+import com.zhuaiwa.api.Common.SSShareType;
+import com.zhuaiwa.api.Rpc.GetCommentRequest;
+import com.zhuaiwa.api.Rpc.GetCommentResponse;
+import com.zhuaiwa.api.Rpc.GetMessageByIdRequest;
+import com.zhuaiwa.api.Rpc.GetMessageByIdResponse;
+import com.zhuaiwa.api.Rpc.GetMessageRequest;
+import com.zhuaiwa.api.Rpc.GetMessageResponse;
+import com.zhuaiwa.api.Rpc.RemoveMessageRequest;
+import com.zhuaiwa.api.Rpc.RemoveMessageResponse;
+import com.zhuaiwa.api.Rpc.SendMessageRequest;
+import com.zhuaiwa.api.Rpc.SendMessageResponse;
+import com.zhuaiwa.api.SSDataDomain.SSDataDomainSvc.BlockingInterface;
+import com.zhuaiwa.api.netty.NettyRpcController;
+import com.zhuaiwa.api.util.SSIdUtils;
+import com.zhuaiwa.dd.utils.TestInitializer;
+
+public class MessageTest {
+    private static BlockingInterface api;
+
+    @BeforeClass
+    public static void init() throws Exception {
+        api = TestInitializer.getSync();
+    }
+    
+    @AfterClass
+    public static void shutdown() throws Exception {
+//        HectorFactory.shutdown();
+    }
+    
+    @Before
+    public void setUp() throws Exception {
+        TestInitializer.initKeyspace();
+        
+        // 公开
+        {
+            NettyRpcController controller = new NettyRpcController();
+            SendMessageRequest request = SendMessageRequest.newBuilder()
+              .setUserid("test")
+              .setMsg(SSMessage.newBuilder()
+                      .setMsgid("0000000000000001test")
+                      .setAgent("fortest")
+                      .setShareType(SSShareType.SHARE_TYPE_PUBLIC.getNumber())
+                      .setMsgType(SSMessageType.MESSAGE_TYPE_CONTENT.getNumber())
+                      .setTimestamp(1)
+                      .setSender(SSIdUtils.fromUserId("test"))
+                      .setBody("public message1")
+                      )
+               .build();
+            SendMessageResponse response = api.sendMessage(controller, request);
+            Assert.assertEquals(SSResultCode.RC_OK.getNumber(), controller.getCode());
+        }
+        // 指定
+        {
+            NettyRpcController controller = new NettyRpcController();
+            SendMessageRequest request = SendMessageRequest.newBuilder()
+              .setUserid("test")
+              .setMsg(SSMessage.newBuilder()
+                      .setMsgid("0000000000000002test")
+                      .setAgent("fortest")
+                      .setShareType(SSShareType.SHARE_TYPE_PROTECTED.getNumber())
+                      .setMsgType(SSMessageType.MESSAGE_TYPE_CONTENT.getNumber())
+                      .setTimestamp(2)
+                      .setSender(SSIdUtils.fromUserId("test"))
+                      .addReceiver(SSPerson.newBuilder().setUserid("test_a").setNickname("test_a").build())
+                      .setBody("protect message1")
+                      )
+               .build();
+            SendMessageResponse response = api.sendMessage(controller, request);
+            Assert.assertEquals(SSResultCode.RC_OK.getNumber(), controller.getCode());
+        }
+        // 收藏
+        {
+            NettyRpcController controller = new NettyRpcController();
+            SendMessageRequest request = SendMessageRequest.newBuilder()
+              .setUserid("test")
+              .setMsg(SSMessage.newBuilder()
+                      .setMsgid("0000000000000003test")
+                      .setAgent("fortest")
+                      .setShareType(SSShareType.SHARE_TYPE_PRIVATE.getNumber())
+                      .setMsgType(SSMessageType.MESSAGE_TYPE_CONTENT.getNumber())
+                      .setTimestamp(3)
+                      .setSender(SSIdUtils.fromUserId("test"))
+                      .setBody("fav message1")
+                      )
+               .build();
+            SendMessageResponse response = api.sendMessage(controller, request);
+            Assert.assertEquals(SSResultCode.RC_OK.getNumber(), controller.getCode());
+        }
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        TestInitializer.dropKeyspace();
+    }
+    
+    @Test
+    public void testSendMessage() throws Exception {
+        {
+        NettyRpcController controller = new NettyRpcController();
+        GetMessageRequest request = GetMessageRequest.newBuilder()
+          .setUserid("test")
+          .setSourceBox(SSBOX.PUBBOX)
+           .build();
+        GetMessageResponse response = api.getMessage(controller, request);
+        Assert.assertEquals(SSResultCode.RC_OK.getNumber(), controller.getCode());
+        Assert.assertEquals("0000000000000001test", response.getMsgidList(0));
+        }
+        {
+        NettyRpcController controller = new NettyRpcController();
+        GetMessageRequest request = GetMessageRequest.newBuilder()
+          .setUserid("test")
+          .setSourceBox(SSBOX.OUTBOX)
+           .build();
+        GetMessageResponse response = api.getMessage(controller, request);
+        Assert.assertEquals(SSResultCode.RC_OK.getNumber(), controller.getCode());
+        Assert.assertEquals("0000000000000002test", response.getMsgidList(0));
+        }
+        {
+        NettyRpcController controller = new NettyRpcController();
+        GetMessageRequest request = GetMessageRequest.newBuilder()
+          .setUserid("test_a")
+          .setSourceBox(SSBOX.INBOX)
+           .build();
+        GetMessageResponse response = api.getMessage(controller, request);
+        Assert.assertEquals(SSResultCode.RC_OK.getNumber(), controller.getCode());
+        Assert.assertEquals("0000000000000002test", response.getMsgidList(0));
+        }
+        {
+        NettyRpcController controller = new NettyRpcController();
+        GetMessageRequest request = GetMessageRequest.newBuilder()
+          .setUserid("test")
+          .setSourceBox(SSBOX.FAVBOX)
+           .build();
+        GetMessageResponse response = api.getMessage(controller, request);
+        Assert.assertEquals(SSResultCode.RC_OK.getNumber(), controller.getCode());
+        Assert.assertEquals("0000000000000003test", response.getMsgidList(0));
+        }
+    }
+    
+    @Test
+    public void testGetMessageById() throws Exception {
+        NettyRpcController controller = new NettyRpcController();
+        GetMessageByIdRequest request = GetMessageByIdRequest.newBuilder()
+          .addMsgidList("0000000000000003test")
+          .addMsgidList("0000000000000002test")
+          .addMsgidList("0000000000000001test")
+           .build();
+        GetMessageByIdResponse response = api.getMessageById(controller, request);
+        Assert.assertEquals(SSResultCode.RC_OK.getNumber(), controller.getCode());
+        
+        Assert.assertEquals("0000000000000003test", response.getMsgList(0).getMsgid());
+        Assert.assertEquals(SSShareType.SHARE_TYPE_PRIVATE.getNumber(), response.getMsgList(0).getShareType());
+        Assert.assertEquals("0000000000000002test", response.getMsgList(1).getMsgid());
+        Assert.assertEquals(SSShareType.SHARE_TYPE_PROTECTED.getNumber(), response.getMsgList(1).getShareType());
+        Assert.assertEquals("0000000000000001test", response.getMsgList(2).getMsgid());
+        Assert.assertEquals(SSShareType.SHARE_TYPE_PUBLIC.getNumber(), response.getMsgList(2).getShareType());
+    }
+    
+    @Test
+    public void testRemoveMessage() throws Exception {
+        {
+        NettyRpcController controller = new NettyRpcController();
+        RemoveMessageRequest request = RemoveMessageRequest.newBuilder()
+            .setUserid("test")
+            .setSourceBox(SSBOX.PUBBOX)
+            .addMsgidList("0000000000000001test")
+            .build();
+        RemoveMessageResponse response = api.removeMessage(controller, request);
+        Assert.assertEquals(SSResultCode.RC_OK.getNumber(), controller.getCode());
+        }
+
+        {
+        NettyRpcController controller = new NettyRpcController();
+        GetMessageRequest request = GetMessageRequest.newBuilder()
+          .setUserid("test")
+          .setSourceBox(SSBOX.PUBBOX)
+           .build();
+        GetMessageResponse response = api.getMessage(controller, request);
+        Assert.assertEquals(SSResultCode.RC_OK.getNumber(), controller.getCode());
+        Assert.assertEquals(0, response.getMsgidListCount());
+        }
+    }
+    
+    @Test
+    public void testGetComment() throws Exception {
+        {
+            NettyRpcController controller = new NettyRpcController();
+            SendMessageRequest request = SendMessageRequest.newBuilder()
+              .setUserid("test")
+              .setMsg(SSMessage.newBuilder()
+                      .setMsgid("0000000000000011test")
+                      .setAgent("fortest")
+                      .setShareType(SSShareType.SHARE_TYPE_PUBLIC.getNumber())
+                      .setMsgType(SSMessageType.MESSAGE_TYPE_CONTENT.getNumber())
+                      .setTimestamp(1)
+                      .setSender(SSIdUtils.fromUserId("test"))
+                      .setBody("comment message1")
+                      .setParentId("0000000000000001test")
+                      )
+               .build();
+            SendMessageResponse response = api.sendMessage(controller, request);
+            Assert.assertEquals(SSResultCode.RC_OK.getNumber(), controller.getCode());
+        }
+        {
+            NettyRpcController controller = new NettyRpcController();
+            GetCommentRequest request = GetCommentRequest.newBuilder()
+                .setMsgid("0000000000000001test")
+                .setMode(1)
+                .build();
+            GetCommentResponse response = api.getComment(controller, request);
+            Assert.assertEquals(SSResultCode.RC_OK.getNumber(), controller.getCode());
+            Assert.assertArrayEquals(new String[] {"0000000000000011test"}, response.getMsgidListList().toArray());
+        }
+    }
+}

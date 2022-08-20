@@ -1,0 +1,43 @@
+package com.zhuaiwa.dd.dao;
+
+import java.util.Iterator;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+
+import com.zhuaiwa.dd.config.DDProperties;
+import com.zhuaiwa.dd.domain.Profile;
+import com.zhuaiwa.dd.hector.HectorFactory;
+
+public class ProfileDaoTest {
+    ProfileDao profileDao;
+
+    @Before
+    public void setUp() throws Exception {
+        DDProperties.setProperty("dd.cassandra.addresses", "10.130.29.240");
+        DDProperties.setProperty("dd.cassandra.port", "9160");
+        profileDao = new ProfileDao();
+        profileDao.setKeyspace(HectorFactory.getKeyspace());
+    }
+
+    @After
+    public void tearDown() throws Exception {
+    }
+
+    @Test
+    public void testGetString() {
+        Profile a = profileDao.get("e6a0124d1124b10d279ca759d6d67a31");
+        System.out.println(a.toString());
+    }
+    
+    @Test
+    public void testGetAll() {
+        Iterator<Profile> i = profileDao.getAll();
+        while (i.hasNext()) {
+            Profile profile = i.next();
+            System.out.println(profile.toString());
+        }
+    }
+
+}

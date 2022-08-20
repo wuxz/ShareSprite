@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE log4j:configuration SYSTEM "log4j.dtd">
+<log4j:configuration xmlns:log4j="http://jakarta.apache.org/log4j/">
+
+  <appender name="console-appender" class="org.apache.log4j.ConsoleAppender">
+    <layout class="org.apache.log4j.PatternLayout">
+      <!--<param name="ConversionPattern" value="%d [%t] %c [%-5p] - %m%n"/>-->
+      <param name="ConversionPattern" value="%d [%t] %-5p %c{2}.%M(line %L) %x: %m%n"/>
+    </layout>
+  </appender>
+
+  <appender name="file-appender" class="org.apache.log4j.FileAppender">
+    <param name="File" value="ss.log"/>
+    <param name="Append" value="true"/>
+    <layout class="org.apache.log4j.PatternLayout">
+      <param name="ConversionPattern" value="%d [%t] %-5p %c{2}.%M(line %L) %x: %m%n"/>
+    </layout>
+  </appender>
+<!--   
+  <appender name="scribe-appender" class="com.zhuaiwa.log.ScribeAppender">
+    <param name="scribeHost" value="59.151.117.236"/>
+    <param name="scribePort" value="1464"/>
+    <layout class="org.apache.log4j.PatternLayout">
+      <param name="ConversionPattern" value="%d{yyyy-MM-dd;HH:mm:ss};%m%n"/>
+    </layout>
+  </appender>
+
+  <logger name="scribe" additivity="false">
+    <level value="info"/>
+    <appender-ref ref="scribe-appender"/>
+  </logger>
+ -->
+  <logger name="sharesprite">
+    <level value="debug"/>
+  </logger>
+
+  <logger name="com.channelsoft">
+    <level value="debug"/>
+  </logger>
+
+  <logger name="com.zhuaiwa.api.netty">
+    <level value="debug"/>
+  </logger>
+  
+  <logger name="com.zhuaiwa.api">
+    <level value="error"/>
+  </logger>
+
+  <logger name="com.zhuaiwa.session">
+    <level value="debug"/>
+  </logger>
+  
+  <logger name="com.zhuaiwa.session.PubSubManager">
+    <level value="debug"/>
+  </logger>  
+    
+  <logger name="cn.baiku.service">
+    <level value="debug"/>
+  </logger>  
+  
+  <logger name="org">
+    <level value="error"/>
+  </logger>  
+      
+  <root>
+    <priority value="debug"/>
+    <appender-ref ref="console-appender"/>
+    <appender-ref ref="file-appender"/>
+  </root>
+
+</log4j:configuration>

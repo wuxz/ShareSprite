@@ -1,0 +1,445 @@
+package com.zhuaiwa.dd.cmd;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
+import java.io.UnsupportedEncodingException;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.List;
+
+import me.prettyprint.cassandra.serializers.SerializerTypeInferer;
+import me.prettyprint.hector.api.Keyspace;
+
+import org.apache.cassandra.thrift.ConsistencyLevel;
+import org.apache.commons.lang.ArrayUtils;
+import org.apache.commons.lang.StringUtils;
+
+
+public abstract class Command {
+//	public static final String keyspace = "SSDataDomain";
+	public static final String encoding = "UTF-8";
+	
+	protected Keyspace cassandra;
+	protected ConsistencyLevel consistencyLevel = ConsistencyLevel.QUORUM;
+	
+//	public String getKeyspace() {
+//		return keyspace;
+//	}
+	public String getEncoding() {
+		return encoding;
+	}
+	public Keyspace getCassandra() {
+		return cassandra;
+	}
+	public Command(Keyspace cassandra) {
+		this.cassandra = cassandra;
+	}
+	
+	public Command(Keyspace cassandra, ConsistencyLevel consistencyLevel) {
+		this.cassandra = cassandra;
+		this.consistencyLevel = consistencyLevel;
+	}
+	
+	public ConsistencyLevel getConsistencyLevel() {
+		return consistencyLevel;
+	}
+	public void setConsistencyLevel(ConsistencyLevel consistencyLevel) {
+		this.consistencyLevel = consistencyLevel;
+	}
+	
+	public static byte[] Object2ByteArray(Object o) {
+		return Object2ByteArray(o, null);
+	}
+	
+	static public byte[] Object2ByteArray(Object o, Class<?> type) {
+		byte[] retValue = new byte[0];
+		if (type == null) {
+			if (o == null)
+				return retValue;
+			type = o.getClass();
+		}
+		
+		if (String.class.isAssignableFrom(type)) {
+			retValue = toByteArray((String)o);
+		} else if (Long.class.isAssignableFrom(type)) {
+			retValue = toByteArray(((Long)o));
+		} else if (Integer.class.isAssignableFrom(type)) {
+			retValue = toByteArray(((Integer)o));
+		} else if (Short.class.isAssignableFrom(type)) {
+			retValue = toByteArray(((Short)o));
+		} else if (Byte.class.isAssignableFrom(type)) {
+			retValue = toByteArray((Byte)o);
+		} else if (Double.class.isAssignableFrom(type)) {
+			retValue = toByteArray((Double)o);
+		} else if (Float.class.isAssignableFrom(type)) {
+			retValue = toByteArray((Float)o);
+		} else if (Boolean.class.isAssignableFrom(type)) {
+			retValue = toByteArray(((Boolean)o));
+		} else if (type.isArray() && byte.class.isAssignableFrom(type.getComponentType())) {
+			retValue = (byte[])o;
+		} else {
+			ObjectOutputStream oos = null;
+			ByteArrayOutputStream baos = null;
+			try {
+				baos = new ByteArrayOutputStream();
+				oos = new ObjectOutputStream(baos);
+				oos.writeObject(o);
+				retValue = baos.toByteArray();
+			} catch (IOException e) {
+				e.printStackTrace();
+			} finally {
+				try {
+					if (baos != null)
+						baos.close();
+					if (oos != null)
+						oos.close();
+				} catch (IOException e) {
+				}
+			}
+		}
+		
+		return retValue;
+	}
+	
+	static public <Type> Type ByteArray2Object(ByteBuffer bytes, Class<Type> type) {
+	    return (Type) SerializerTypeInferer.getSerializer(type).fromByteBuffer(bytes);
+	}
+	
+//	@SuppressWarnings({ "unchecked"})
+//	static public <Type> Type ByteArray2Object(byte[] bytes, Class<Type> type) {
+//		Type retValue = null;
+//		if (String.class.isAssignableFrom(type)) {
+//			retValue = (Type)(String)byteArrayToString(bytes);
+//		} else if (Long.class.isAssignableFrom(type)) {
+//			retValue = (Type)(Long)byteArrayToLong(bytes);
+//		} else if (Integer.class.isAssignableFrom(type)) {
+//			retValue = (Type)(Integer)byteArrayToInt(bytes);
+//		} else if (Short.class.isAssignableFrom(type)) {
+//			retValue = (Type)(Short)byteArrayToShort(bytes);
+//		} else if (Byte.class.isAssignableFrom(type)) {
+//			retValue = (Type)(Byte)byteArrayToByte(bytes);
+//		} else if (Double.class.isAssignableFrom(type)) {
+//			retValue = (Type)(Double)byteArrayToDouble(bytes);
+//		} else if (Float.class.isAssignableFrom(type)) {
+//			retValue = (Type)(Float)byteArrayToFloat(bytes);
+//		} else if (Boolean.class.isAssignableFrom(type)) {
+//			retValue = (Type)(Boolean)byteArrayToBoolean(bytes);
+//		} else {
+//			if (type.isArray() && byte.class.isAssignableFrom(type.getComponentType())) {
+//				// 检查是不是ObjectOutputStream的序列化，magic code为0xaced
+//				if (bytes.length < 2 || bytes[0] != (byte)0xac || bytes[1] != (byte)0xed) {
+//					retValue = (Type)bytes;
+//					return retValue;
+//				}
+//			}
+//			
+//			ByteArrayInputStream bais = null;
+//			ObjectInputStream ois = null;
+//			try {
+//				bais = new ByteArrayInputStream(bytes);
+//				ois = new ObjectInputStream(bais);
+//				retValue = (Type)ois.readObject();
+//			} catch (IOException e) {
+//				e.printStackTrace();
+//				retValue = null;
+//			} catch (ClassNotFoundException e) {
+//				e.printStackTrace();
+//				retValue = null;
+//			} finally {
+//				try {
+//					if (bais != null)
+//						bais.close();
+//					if (ois != null)
+//						ois.close();
+//				} catch (IOException e) {
+//				}
+//			}
+//		}
+//		return retValue;
+//	}
+	
+	//================================================================================================
+	public static byte[] toByteArray(String s) {
+		if (s == null)
+			return new byte[0];
+		try {
+			return s.getBytes(encoding);
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
+		}
+    	return new byte[0];
+    }
+	
+    public static byte[] toByteArray(byte b) {
+    	byte[] bytes = new byte[1];
+    	ByteBuffer.wrap(bytes).put(b);
+    	return bytes;
+    }
+    
+    public static byte[] toByteArray(short s) {
+    	byte[] bytes = new byte[2];
+    	ByteBuffer.wrap(bytes).putShort(s);
+    	return bytes;
+    }
+    
+    public static byte[] toByteArray(int i)
+    {
+        byte[] bytes = new byte[4];
+        ByteBuffer.wrap(bytes).putInt(i);
+        return bytes;
+    }
+    
+    public static byte[] toByteArray(long n)
+    {
+        byte[] bytes = new byte[8];
+        ByteBuffer.wrap(bytes).putLong(n);
+        return bytes;
+    }
+    
+    public static byte[] toByteArray(float f)
+    {
+        byte[] bytes = new byte[4];
+        ByteBuffer.wrap(bytes).putFloat(f);
+        return bytes;
+    }
+    
+    public static byte[] toByteArray(double d)
+    {
+        byte[] bytes = new byte[8];
+        ByteBuffer.wrap(bytes).putDouble(d);
+        return bytes;
+    }
+    
+    public static byte[] toByteArray(boolean b)
+    {
+        byte[] bytes = new byte[1];
+        if (b)
+        	bytes[0] = 1;
+        else
+        	bytes[0] = 0;
+        return bytes;
+    }
+    
+    public static String byteArrayToString(byte[] bytes) {
+    	try {
+			return new String(bytes, encoding);
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
+		}
+		return null;
+    }
+    
+    public static byte byteArrayToByte(byte[] bytes) {
+    	if (bytes.length < 1) {
+            throw new IllegalArgumentException("An byte must be 1 bytes in size.");
+    	}
+    	return ByteBuffer.wrap(bytes).get();
+    }
+    
+    public static short byteArrayToShort(byte[] bytes) {
+    	if (bytes.length < 2) {
+            throw new IllegalArgumentException("An short must be 2 bytes in size.");
+    	}
+    	return ByteBuffer.wrap(bytes).getShort();
+    }
+
+    public static int byteArrayToInt(byte[] bytes)
+    {
+        if ( bytes.length < 4 )
+        {
+            throw new IllegalArgumentException("An integer must be 4 bytes in size.");
+        }
+        return ByteBuffer.wrap(bytes).getInt();
+    }
+
+    public static long byteArrayToLong(byte[] bytes)
+    {
+        if ( bytes.length < 8 )
+        {
+            throw new IllegalArgumentException("An long must be 8 bytes in size.");
+        }
+        return ByteBuffer.wrap(bytes).getLong();
+    }
+
+    public static float byteArrayToFloat(byte[] bytes)
+    {
+        if ( bytes.length < 4 )
+        {
+            throw new IllegalArgumentException("An float must be 4 bytes in size.");
+        }
+        return ByteBuffer.wrap(bytes).getFloat();
+    }
+
+    public static double byteArrayToDouble(byte[] bytes)
+    {
+        if ( bytes.length < 8 )
+        {
+            throw new IllegalArgumentException("An double must be 8 bytes in size.");
+        }
+        return ByteBuffer.wrap(bytes).getDouble();
+    }
+
+    public static boolean byteArrayToBoolean(byte[] bytes)
+    {
+        if ( bytes.length < 1 )
+        {
+            throw new IllegalArgumentException("An boolean must be 1 bytes in size.");
+        }
+        if (bytes[0] > 0)
+        	return true;
+        return false;
+    }
+    
+    public static int compareByteArrays(byte[] bytes1, byte[] bytes2){
+        if(null == bytes1){
+            if(null == bytes2) return 0;
+            else return -1;
+        }
+        if(null == bytes2) return 1;
+
+        int minLength = Math.min(bytes1.length, bytes2.length);
+        for(int i = 0; i < minLength; i++)
+        {
+            if(bytes1[i] == bytes2[i])
+                continue;
+            // compare non-equal bytes as unsigned
+            return (bytes1[i] & 0xFF) < (bytes2[i] & 0xFF) ? -1 : 1;
+        }
+        if(bytes1.length == bytes2.length) return 0;
+        else return (bytes1.length < bytes2.length)? -1 : 1;
+    }
+    
+    public static String join(List<String> l) {
+    	StringBuilder sb = new StringBuilder();
+    	for (String s : l) {
+    		sb.append(s).append(";");
+    	}
+    	if (sb.length() > 0 && sb.charAt(sb.length()-1) == ';')
+    		sb.deleteCharAt(sb.length()-1);
+    	return sb.toString();
+    }
+    
+    public static List<String> split(String s) {
+    	List<String> arrays = new ArrayList<String>();
+    	for (String i:s.split(";")) {
+    		if (StringUtils.isNotEmpty(i))
+    			arrays.add(i);
+    	}
+    	return arrays;
+    }
+    
+    public static Charset encodeset = Charset.forName(Command.encoding);
+    
+
+    /**
+     * Decode a String representation.
+     * This method assumes that the encoding charset is UTF_8.
+     *
+     * @param buffer a byte buffer holding the string representation
+     * @return the decoded string
+     */
+    public static String string(ByteBuffer buffer) throws CharacterCodingException
+    {
+        return string(buffer, encodeset);
+    }
+
+    /**
+     * Decode a String representation.
+     * This method assumes that the encoding charset is UTF_8.
+     *
+     * @param buffer a byte buffer holding the string representation
+     * @param position the starting position in {@code buffer} to start decoding from
+     * @param length the number of bytes from {@code buffer} to use
+     * @return the decoded string
+     */
+    public static String string(ByteBuffer buffer, int position, int length) throws CharacterCodingException
+    {
+        return string(buffer, position, length, encodeset);
+    }
+
+    /**
+     * Decode a String representation.
+     *
+     * @param buffer a byte buffer holding the string representation
+     * @param position the starting position in {@code buffer} to start decoding from
+     * @param length the number of bytes from {@code buffer} to use
+     * @param charset the String encoding charset
+     * @return the decoded string
+     */
+    public static String string(ByteBuffer buffer, int position, int length, Charset charset) throws CharacterCodingException
+    {
+        ByteBuffer copy = buffer.duplicate();
+        copy.position(position);
+        copy.limit(copy.position() + length);
+        return string(copy, charset);
+    }
+
+    /**
+     * Decode a String representation.
+     *
+     * @param buffer a byte buffer holding the string representation
+     * @param charset the String encoding charset
+     * @return the decoded string
+     */
+    public static String string(ByteBuffer buffer, Charset charset) throws CharacterCodingException
+    {
+        return charset.newDecoder().decode(buffer.duplicate()).toString();
+    }
+    
+
+    public static ByteBuffer bytes(String s)
+    {
+        return ByteBuffer.wrap(s.getBytes(Command.encodeset));
+    }
+    
+    public static ByteBuffer bytes(String s, Charset charset)
+    {
+        return ByteBuffer.wrap(s.getBytes(charset));
+    }
+    
+
+    public static int toInt(ByteBuffer bytes)
+    {
+        return bytes.getInt(bytes.position());
+    }
+    
+    public static long toLong(ByteBuffer bytes)
+    {
+        return bytes.getLong(bytes.position());
+    }
+
+    public static float toFloat(ByteBuffer bytes)
+    {
+        return bytes.getFloat(bytes.position());
+    }
+
+    public static double toDouble(ByteBuffer bytes)
+    {
+        return bytes.getDouble(bytes.position());
+    }
+
+    public static ByteBuffer bytes(int i)
+    {
+        return ByteBuffer.allocate(4).putInt(0, i);
+    }
+
+    public static ByteBuffer bytes(long n)
+    {
+        return ByteBuffer.allocate(8).putLong(0, n);
+    }
+
+    public static ByteBuffer bytes(float f)
+    {
+        return ByteBuffer.allocate(4).putFloat(0, f);
+    }
+
+    public static ByteBuffer bytes(double d)
+    {
+        return ByteBuffer.allocate(8).putDouble(0, d);
+    }
+    
+    public static final ByteBuffer EMPTY_BYTE_BUFFER = ByteBuffer.wrap(ArrayUtils.EMPTY_BYTE_ARRAY);
+}

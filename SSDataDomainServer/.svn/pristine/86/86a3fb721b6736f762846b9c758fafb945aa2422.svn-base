@@ -1,0 +1,64 @@
+#!/bin/sh
+
+this="${BASH_SOURCE-$0}"
+if readlink -f "$this" > /dev/null 2>&1
+then
+  this=`readlink -f "$this"`
+fi
+basedir=`dirname "$this"`
+basedir=`cd "$basedir">/dev/null; pwd`
+
+. $basedir/env
+
+usage()
+{
+echo "Usage: `basename $0` [options] [DEBUG|TRACE|INFO|WARN|ERROR]"
+echo "      --help                print usage"
+echo "  -h, --host=HOST           host name or ip address"
+echo "  -p, --port=PORT           jmx port"
+}
+
+args=`getopt --name=$(basename $0) --options=h:p: --longoptions=help,host:,port: -- "$@"`
+if [ $? -ne 0 ]; then
+  usage
+  exit $?
+fi
+
+eval set -- "$args"
+
+host=127.0.0.1
+port=$JMX_PORT
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -h|--host)
+      host=$2
+      shift 2
+      ;;
+    -p|--port)
+      port=$2
+      shift 2
+      ;;
+    --help)
+      usage
+      exit
+      ;;
+    ""|--)
+      shift
+      ;;
+    DEBUG|TRACE|INFO|WARN|ERROR)
+      level=$1
+      shift
+      ;;
+    *)
+      echo "Unknown argument $1"
+      usage
+      exit 1
+      ;;
+  esac
+done
+
+$JAVA -cp $CLASSPATH com.zhuaiwa.dd.tool.LogLevel \
+--host=$host \
+--port=$port \
+$level

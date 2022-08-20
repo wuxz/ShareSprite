@@ -1,0 +1,117 @@
+#!/bin/sh
+
+this="${BASH_SOURCE-$0}"
+if readlink -f "$this" > /dev/null 2>&1
+then
+  this=`readlink -f "$this"`
+fi
+basedir=`dirname "$this"`
+basedir=`cd "$basedir">/dev/null; pwd`
+
+. $basedir/env
+
+usage()
+{
+echo "Usage: `basename $0` [all] [options]"
+echo "      --help                print usage"
+echo "  -h, --host=HOST           host name or ip address"
+echo "  -p, --port=PORT           jmx port"
+echo "  -i, --interval=INTERVAL   sample interval (default 10 seconds)"
+echo "  -c, --count=COUNT         sample count (default infinite)"
+echo "  -s, --service=SERVICE     monitored service name (default SSDataDomain)"
+echo "  -m, --method=METHOD       monitored method name"
+}
+
+args=`getopt --name=$(basename $0) --options=h:p:i:c:s:m: --longoptions=help,host:,port:,interval:,count:,service:,method: -- "$@"`
+#echo "args: $args"
+if [ $? -ne 0 ]; then
+  usage
+  exit $?
+fi
+
+eval set -- "$args"
+
+host=127.0.0.1
+port=$JMX_PORT
+interval=10
+count=
+service=SSDataDomainSvc
+methods=
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -h|--host)
+      host=$2
+      shift 2
+      ;;
+    -p|--port)
+      port=$2
+      shift 2
+      ;;
+    -i|--interval)
+      interval=$2
+      shift 2
+      ;;
+    -c|--count)
+      count=$2
+      shift 2
+      ;;
+    -s|--service)
+      service=$2
+      shift 2
+      ;;
+    -m|--method)
+      methods="$methods $2"
+      shift 2
+      ;;
+    --help)
+      usage
+      exit
+      ;;
+    ""|--)
+      shift
+      ;;
+    all)
+      methods="GetAccount \
+               GetProfile \
+               Follow \
+               Unfollow \
+               GetFollowing \
+               GetFollower \
+               IsFollower \
+               SendMessage \
+               GetMessageById \
+               GetMessage \
+               GetMessageByTimestamp \
+               GetComment \
+               $methods"
+      shift
+      ;;
+    *)
+      echo "Unknown argument $1"
+      usage
+      exit 1
+      ;;
+  esac
+done
+
+OPTS=""
+[ -n "$host" ] && OPTS="$OPTS --host=$host"
+[ -n "$port" ] && OPTS="$OPTS --port=$port"
+[ -n "$interval" ] && OPTS="$OPTS --interval=$interval"
+[ -n "$count" ] && OPTS="$OPTS --count=$count"
+
+SERVICENAME=com.zhuaiwa.api.server:type=$service
+
+if [ -z "$methods" ]; then
+  OBJECTNAMES=$SERVICENAME
+else
+  for method in $methods; do
+    OBJECTNAMES="$OBJECTNAMES $SERVICENAME,method=$method"
+  done
+fi
+
+$JAVA -cp $CLASSPATH \
+com.zhuaiwa.api.tool.LatencyPrinter \
+$OPTS \
+$OBJECTNAMES

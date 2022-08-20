@@ -1,0 +1,153 @@
+package com.zhuaiwa.dd.dao;
+
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import me.prettyprint.cassandra.serializers.ByteBufferSerializer;
+import me.prettyprint.cassandra.serializers.CompositeSerializer;
+import me.prettyprint.cassandra.serializers.LongSerializer;
+import me.prettyprint.cassandra.serializers.StringSerializer;
+import me.prettyprint.hector.api.beans.Composite;
+import me.prettyprint.hector.api.beans.HColumn;
+import me.prettyprint.hector.api.beans.HSuperColumn;
+import me.prettyprint.hector.api.factory.HFactory;
+import me.prettyprint.hector.api.mutation.Mutator;
+import me.prettyprint.hector.api.query.QueryResult;
+import me.prettyprint.hector.api.query.SuperColumnQuery;
+import me.prettyprint.hector.api.query.SuperSliceQuery;
+
+import com.zhuaiwa.dd.domain.FollowInfo;
+import com.zhuaiwa.dd.domain.Follower;
+import com.zhuaiwa.dd.hector.SuperSliceIterator;
+
+public class FollowerDao extends AbstractDao<Follower> {
+    public static final String CN_TIMEFOLLOWER = "TimeFollower";
+    @Override
+    protected void insert(Mutator<String> mutator, Follower obj) {
+        for (FollowInfo fi : obj.getFollowers()) {
+            insert(mutator, obj.getUserid(), fi.getUserid(), fi.getTimestamp());
+        }
+    }
+    @Override
+    protected void delete(Mutator<String> mutator, String id) {
+        super.delete(mutator, id);
+        mutator.addDeletion(id, CN_TIMEFOLLOWER);
+    }
+    
+    public void insert(String userid, String follower, Long timestamp) {
+        Mutator<String> mutator = currentThreadMutator.get();
+        boolean batch = (mutator != null);
+        if (mutator == null) {
+            mutator = HFactory.createMutator(keyspace, StringSerializer.get());
+        }
+        
+        insert(mutator, userid, follower, timestamp);
+        
+        if (!batch)
+            mutator.execute();
+    }
+    
+    public void delete(String userid, String follower, Long timestamp) {
+        Mutator<String> mutator = currentThreadMutator.get();
+        boolean batch = (mutator != null);
+        if (mutator == null) {
+            mutator = HFactory.createMutator(keyspace, StringSerializer.get());
+        }
+        
+        delete(mutator, userid, follower, timestamp);
+        
+        if (!batch)
+            mutator.execute();
+    }
+    
+    public void delete(String userid, String follower) {
+        FollowInfo fi = get(userid, follower);
+        delete(userid, follower, fi == null ? null : fi.getTimestamp());
+    }
+    
+    public FollowInfo get(String userid, String follower) {
+        SuperColumnQuery<String, String, String, ByteBuffer> query = HFactory.createSuperColumnQuery(keyspace, StringSerializer.get(), StringSerializer.get(), StringSerializer.get(), ByteBufferSerializer.get());
+        query.setColumnFamily(this.columnFamilyName);
+        query.setKey(userid);
+        query.setSuperName(follower);
+        QueryResult<HSuperColumn<String, String, ByteBuffer>> result = query.execute();
+        HSuperColumn<String, String, ByteBuffer> superColumn = (result == null ? null : result.get());
+        if (superColumn == null || superColumn.getSize() == 0)
+            return null;
+        return buildFollowInfo(superColumn.getColumns());
+    }
+    
+    public List<FollowInfo> getFollower(String userid, FollowInfo cursor, int count) {
+        SuperSliceQuery<String, Composite, String, ByteBuffer> query = HFactory.createSuperSliceQuery(keyspace, StringSerializer.get(), new CompositeSerializer(), StringSerializer.get(), ByteBufferSerializer.get());
+        query.setColumnFamily(CN_TIMEFOLLOWER);
+        query.setKey(userid);
+        
+        Composite c = (cursor == null ? null : new Composite());
+        if (c != null) {
+            c.addComponent(cursor.getTimestamp(), LongSerializer.get());
+            c.addComponent(cursor.getUserid(), StringSerializer.get());
+        }
+        SuperSliceIterator<String, Composite, String, ByteBuffer> i = new SuperSliceIterator<String, Composite, String, ByteBuffer>(query, c, (Composite)null, false, count);
+        List<FollowInfo> result = new ArrayList<FollowInfo>();
+        while (i.hasNext()) {
+            HSuperColumn<Composite, String, ByteBuffer> superColumn = i.next();
+            if (superColumn.getSize() > 0) {
+                result.add(buildFollowInfo(superColumn.getColumns()));
+            }
+        }
+        return result;
+    }
+    
+    @SuppressWarnings("unchecked")
+    protected void insert(Mutator<String> mutator, String userid, String follower, Long timestamp) {
+        // Follower
+        mutator.addInsertion(userid, this.columnFamilyName, HFactory.createSuperColumn(
+                follower,
+                Arrays.asList(
+                        HFactory.createColumn(FollowInfo.FN_USERID, StringSerializer.get().toByteBuffer(follower), StringSerializer.get(), ByteBufferSerializer.get()),
+                        HFactory.createColumn(FollowInfo.FN_TIMESTAMP, LongSerializer.get().toByteBuffer(timestamp), StringSerializer.get(), ByteBufferSerializer.get())
+                ),
+                StringSerializer.get(), StringSerializer.get(), ByteBufferSerializer.get()));
+
+        // TimeFollower
+        if (timestamp != null) {
+            Composite c = new Composite();
+            c.addComponent(timestamp, LongSerializer.get());
+            c.addComponent(follower, StringSerializer.get());
+            mutator.addInsertion(userid, CN_TIMEFOLLOWER, HFactory.createSuperColumn(
+                    c,
+                    Arrays.asList(
+                            HFactory.createColumn(FollowInfo.FN_USERID, StringSerializer.get().toByteBuffer(follower), StringSerializer.get(), ByteBufferSerializer.get()),
+                            HFactory.createColumn(FollowInfo.FN_TIMESTAMP, LongSerializer.get().toByteBuffer(timestamp), StringSerializer.get(), ByteBufferSerializer.get())
+                    ),
+                    new CompositeSerializer(), StringSerializer.get(), ByteBufferSerializer.get()));
+        }
+    }
+    
+    protected void delete(Mutator<String> mutator, String userid, String follower, Long timestamp) {
+        // Follower
+        mutator.addSuperDelete(userid, this.columnFamilyName, follower, StringSerializer.get());
+        
+        // TimeFollower
+        if (timestamp != null) {
+            Composite c = new Composite();
+            c.addComponent(timestamp, LongSerializer.get());
+            c.addComponent(follower, StringSerializer.get());
+            mutator.addSuperDelete(userid, CN_TIMEFOLLOWER, c, new CompositeSerializer());
+        }
+    }
+    
+    public static FollowInfo buildFollowInfo(List<HColumn<String,ByteBuffer>> columns) {
+        FollowInfo fi = new FollowInfo();
+        for (HColumn<String, ByteBuffer> column : columns) {
+            if (FollowInfo.FN_USERID.equals(column.getName())) {
+                fi.setUserid(StringSerializer.get().fromByteBuffer(column.getValue()));
+            } else if (FollowInfo.FN_TIMESTAMP.equals(column.getName())) {
+                fi.setTimestamp(LongSerializer.get().fromByteBuffer(column.getValue()));
+            }
+        }
+        return fi;
+    }
+}

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="gen-java"/>
+	<classpathentry excluding="dal/com/channelsoft/zhuaiwa/dal/service/" kind="src" path="test"/>
+	<classpathentry excluding="com/channelsoft/ss/netty/client/" kind="src" path="main"/>
+	<classpathentry kind="src" path="conf"/>
+	<classpathentry kind="src" path="search"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.junit.JUNIT_CONTAINER/4"/>
+	<classpathentry kind="lib" path="lib/geronimo-jms_1.1_spec-1.1.1.jar"/>
+	<classpathentry kind="lib" path="lib/json_simple-1.1.jar"/>
+	<classpathentry kind="lib" path="lib/commons-httpclient-3.1.jar"/>
+	<classpathentry kind="lib" path="lib/freemarker.jar"/>
+	<classpathentry kind="lib" path="lib/commons-codec-1.5.jar"/>
+	<classpathentry kind="lib" path="lib/commons-cli-1.1.jar"/>
+	<classpathentry kind="lib" path="lib/commons-lang-2.4.jar"/>
+	<classpathentry kind="lib" path="lib/log4j-1.2.16.jar"/>
+	<classpathentry kind="lib" path="lib/mail.jar"/>
+	<classpathentry kind="lib" path="lib/netty-3.2.5.Final.jar"/>
+	<classpathentry kind="lib" path="lib/protobuf-java-2.3.0.jar"/>
+	<classpathentry kind="lib" path="lib/slf4j-api-1.6.1.jar"/>
+	<classpathentry kind="lib" path="lib/slf4j-log4j12-1.6.1.jar"/>
+	<classpathentry kind="lib" path="lib/commons-pool-1.5.5.jar"/>
+	<classpathentry kind="lib" path="lib/jedis-1.0.0-r11779.jar"/>
+	<classpathentry kind="lib" path="lib/commons-logging-1.1.1.jar"/>
+	<classpathentry kind="lib" path="lib/sharespriteCommon-1.0.4-r12010.jar" sourcepath="/sharespriteCommon"/>
+	<classpathentry kind="lib" path="lib/apache-cassandra-thrift-1.0.6.jar"/>
+	<classpathentry kind="lib" path="lib/libthrift-0.6.jar"/>
+	<classpathentry kind="lib" path="lib/datadomain-1.1.0-migration-final.jar"/>
+	<classpathentry kind="lib" path="lib/activation-1.1.jar"/>
+	<classpathentry kind="lib" path="lib/activemq-core-5.4.3.jar"/>
+	<classpathentry kind="lib" path="lib/apache-solr-core-3.5.0.jar"/>
+	<classpathentry kind="lib" path="lib/geronimo-j2ee-management_1.1_spec-1.0.1.jar"/>
+	<classpathentry kind="lib" path="lib/geronimo-jta_1.0.1B_spec-1.0.1.jar"/>
+	<classpathentry kind="lib" path="lib/apache-solr-solrj-3.5.0.jar"/>
+	<classpathentry kind="lib" path="lib/alisoft-xplatform-asf-cache-2.5.1.jar"/>
+	<classpathentry kind="output" path="classes"/>
+</classpath>

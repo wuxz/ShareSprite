@@ -1,0 +1,25 @@
+this="${BASH_SOURCE-$0}"
+if readlink -f "$this" > /dev/null 2>&1
+then
+  this=`readlink -f "$this"`
+fi
+basedir=`dirname "$this"`
+basedir=`cd "$basedir">/dev/null; pwd`
+
+. $basedir/env
+
+exec $JAVA \
+     $JVM_OPTS \
+     -cp $CLASSPATH \
+     -Ddd.server.pidfile=$PIDPATH \
+     com.zhuaiwa.dd.SSDataDomainServer <&- &
+[ ! -z $PIDPATH ] && printf "%d" $! > $PIDPATH
+
+#     $JAVA \
+#     $JVM_OPTS \
+#     -cp $CLASSPATH \
+#     -Ddd.server.pidfile=$PIDPATH \
+#     -Ddd.server.foreground=yes \
+#     com.zhuaiwa.dd.SSDataDomainServer
+
+exit $?

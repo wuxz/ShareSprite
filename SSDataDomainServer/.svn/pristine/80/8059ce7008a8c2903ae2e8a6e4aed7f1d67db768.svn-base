@@ -1,0 +1,274 @@
+package com.zhuaiwa.dd.cmd;
+
+
+import java.util.List;
+
+import me.prettyprint.hector.api.Keyspace;
+
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
+import org.omg.CORBA.BooleanHolder;
+
+import com.zhuaiwa.api.Common.SSBOX;
+import com.zhuaiwa.dd.config.DDProperties;
+import com.zhuaiwa.dd.domain.MessageInfo;
+import com.zhuaiwa.dd.domain.PubBox;
+import com.zhuaiwa.dd.hector.HectorFactory;
+import com.zhuaiwa.dd.service.impl.DataServiceImpl;
+
+public class PubBoxPageTest {
+    Keyspace cassandra;
+
+    @Before
+    public void setUp() throws Exception {
+        DDProperties.setProperty("dd.cassandra.addresses", "p0");
+        DDProperties.setProperty("dd.cassandra.port", "9160");
+        cassandra = HectorFactory.getKeyspace();
+        
+        prepareData();
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        cleanupData();
+        HectorFactory.shutdown();
+    }
+    
+    private String getKey() {
+        return "test";
+    }
+
+    //@Test
+    public void prepareData() throws Exception {
+        for (int i = 0; i < 100; i++) {
+            String msgid = String.format("%016X%s", i, getKey());
+            //System.out.println(msgid);
+            
+            CreateCommand c = new CreateCommand(cassandra);
+            c.Object(PubBox.CN_PUBBOX).Where(getKey());
+            c.Insert(msgid, "msgid", msgid);
+            c.execute();
+        }
+    }
+    
+    //@Test
+    public void cleanupData() throws Exception {
+        DeleteCommand c = new DeleteCommand(cassandra);
+        c.Object(PubBox.CN_PUBBOX);
+        c.DeleteKey(getKey());
+        c.execute();
+    }
+    
+    //@Test
+    public void printData() throws Exception {
+        ReadCommand c = new ReadCommand(cassandra);
+        c.Object(PubBox.class);
+        c.Where(getKey());
+        c.Select();
+        PubBox pubbox = c.<PubBox>execute().get(getKey());
+        if (pubbox == null) {
+            System.out.println("No data");
+            return;
+        }
+        printPubBox(pubbox);
+    }
+    
+    private void printPubBox(PubBox pubbox) throws Exception {
+        System.out.println("userid: " + pubbox.getUserid());
+        System.out.println("length: " + pubbox.getMessages().size());
+        for (MessageInfo mi : pubbox.getMessages()) {
+            System.out.println("msgid: " + mi.getMsgid());
+        }
+    }
+    
+    private String[] getMsgidArray(PubBox pubbox) {
+        return getMsgidArray(pubbox.getMessages());
+    }
+    
+    private String[] getMsgidArray(List<MessageInfo> milist) {
+        String[] msgidlist = new String[milist.size()];
+        int i = 0;
+        for (MessageInfo mi : milist) {
+            msgidlist[i++] = mi.getMsgid();
+        }
+        return msgidlist;
+    }
+    
+    @Test
+    public void testIterateWithoutCursor1() throws Exception {
+        ReadCommand c = new ReadCommand(cassandra);
+        c.Object(PubBox.class);
+        c.Where(getKey());
+        c.Select();
+        c.Limit(null, 5);
+        PubBox pubbox = c.<PubBox>execute().get(getKey());
+        Assert.assertNotNull(pubbox);
+        Assert.assertArrayEquals(new String[]{
+                "0000000000000000test",
+                "0000000000000001test",
+                "0000000000000002test",
+                "0000000000000003test",
+                "0000000000000004test"}, getMsgidArray(pubbox));
+    }
+    
+    @Test
+    public void testIterateWithoutCursor2() throws Exception {
+        ReadCommand c = new ReadCommand(cassandra);
+        c.Object(PubBox.class);
+        c.Where(getKey());
+        c.Select();
+        c.Limit(null, -5);
+        PubBox pubbox = c.<PubBox>execute().get(getKey());
+        Assert.assertNotNull(pubbox);
+        Assert.assertArrayEquals(new String[]{
+                "0000000000000063test",
+                "0000000000000062test",
+                "0000000000000061test",
+                "0000000000000060test",
+                "000000000000005Ftest"}, getMsgidArray(pubbox));
+    }
+    
+    @Test
+    public void testIterateWithCursor1() throws Exception {
+        ReadCommand c = new ReadCommand(cassandra);
+        c.Object(PubBox.class);
+        c.Where(getKey());
+        c.Select();
+        c.Limit("0000000000000005test", 5);
+        PubBox pubbox = c.<PubBox>execute().get(getKey());
+        Assert.assertNotNull(pubbox);
+        Assert.assertArrayEquals(new String[]{
+                "0000000000000005test",
+                "0000000000000006test",
+                "0000000000000007test",
+                "0000000000000008test",
+                "0000000000000009test"}, getMsgidArray(pubbox));
+    }
+    
+    @Test
+    public void testIterateWithCursor2() throws Exception {
+        ReadCommand c = new ReadCommand(cassandra);
+        c.Object(PubBox.class);
+        c.Where(getKey());
+        c.Select();
+        c.Limit("0000000000000005test", -5);
+        PubBox pubbox = c.<PubBox>execute().get(getKey());
+        Assert.assertNotNull(pubbox);
+        Assert.assertArrayEquals(new String[]{
+                "0000000000000005test",
+                "0000000000000004test",
+                "0000000000000003test",
+                "0000000000000002test",
+                "0000000000000001test"}, getMsgidArray(pubbox));
+    }
+    
+    @Test
+    public void testIterateWithLimit1() throws Exception {
+        ReadCommand c = new ReadCommand(cassandra);
+        c.Object(PubBox.class);
+        c.Where(getKey());
+        c.Select();
+        c.Limit("0000000000000005test", "0000000000000009test", 10);
+        PubBox pubbox = c.<PubBox>execute().get(getKey());
+        Assert.assertNotNull(pubbox);
+        Assert.assertArrayEquals(new String[]{
+                "0000000000000005test",
+                "0000000000000006test",
+                "0000000000000007test",
+                "0000000000000008test",
+                "0000000000000009test"}, getMsgidArray(pubbox));
+    }
+    
+    @Test
+    public void testIterateWithLimit2() throws Exception {
+        ReadCommand c = new ReadCommand(cassandra);
+        c.Object(PubBox.class);
+        c.Where(getKey());
+        c.Select();
+        c.Limit("0000000000000005test", "0000000000000001test", -10);
+        PubBox pubbox = c.<PubBox>execute().get(getKey());
+        Assert.assertNotNull(pubbox);
+        Assert.assertArrayEquals(new String[]{
+                "0000000000000005test",
+                "0000000000000004test",
+                "0000000000000003test",
+                "0000000000000002test",
+                "0000000000000001test"}, getMsgidArray(pubbox));
+    }
+    
+    @Test
+    public void testGetMessageWithoutCursor1() throws Exception {
+        DataServiceImpl ds = new DataServiceImpl(cassandra);
+        BooleanHolder eol = new BooleanHolder(false);
+        Assert.assertArrayEquals(new String[] {
+                "0000000000000000test",
+                "0000000000000001test",
+                "0000000000000002test",
+                "0000000000000003test",
+                "0000000000000004test"}, getMsgidArray(ds.getMessageIdList(getKey(), SSBOX.PUBBOX, null, 5, eol)));
+        Assert.assertFalse(eol.value);
+    }
+    
+    @Test
+    public void testGetMessageWithoutCursor2() throws Exception {
+        DataServiceImpl ds = new DataServiceImpl(cassandra);
+        BooleanHolder eol = new BooleanHolder(false);
+        Assert.assertArrayEquals(new String[] {
+                "0000000000000063test",
+                "0000000000000062test",
+                "0000000000000061test",
+                "0000000000000060test",
+                "000000000000005Ftest"}, getMsgidArray(ds.getMessageIdList(getKey(), SSBOX.PUBBOX, null, -5, eol)));
+        Assert.assertFalse(eol.value);
+    }
+    
+    @Test
+    public void testGetMessageWithCursor1() throws Exception {
+        DataServiceImpl ds = new DataServiceImpl(cassandra);
+        BooleanHolder eol = new BooleanHolder(false);
+        Assert.assertArrayEquals(new String[] {
+                "0000000000000006test",
+                "0000000000000007test",
+                "0000000000000008test",
+                "0000000000000009test",
+                "000000000000000Atest"}, getMsgidArray(ds.getMessageIdList(getKey(), SSBOX.PUBBOX, "0000000000000005test", 5, eol)));
+        Assert.assertFalse(eol.value);
+    }
+    
+    @Test
+    public void testGetMessageWithCursor2() throws Exception {
+        DataServiceImpl ds = new DataServiceImpl(cassandra);
+        BooleanHolder eol = new BooleanHolder(false);
+        Assert.assertArrayEquals(new String[] {
+                "0000000000000004test",
+                "0000000000000003test",
+                "0000000000000002test",
+                "0000000000000001test",
+                "0000000000000000test"}, getMsgidArray(ds.getMessageIdList(getKey(), SSBOX.PUBBOX, "0000000000000005test", -5, eol)));
+        Assert.assertTrue(eol.value);
+    }
+    
+    @Test
+    public void testGetMessageByTimestamp1() throws Exception {
+        DataServiceImpl ds = new DataServiceImpl(cassandra);
+        Assert.assertArrayEquals(new String[] {
+                "0000000000000006test",
+                "0000000000000007test",
+                "0000000000000008test",
+                "0000000000000009test",
+                "000000000000000Atest"}, getMsgidArray(ds.getMessageIdListByTimestamp(getKey(), SSBOX.PUBBOX, 5, 10, 5)));
+    }
+    
+    @Test
+    public void testGetMessageByTimestamp2() throws Exception {
+        DataServiceImpl ds = new DataServiceImpl(cassandra);
+        Assert.assertArrayEquals(new String[] {
+                "0000000000000004test",
+                "0000000000000003test",
+                "0000000000000002test",
+                "0000000000000001test",
+                "0000000000000000test"}, getMsgidArray(ds.getMessageIdListByTimestamp(getKey(), SSBOX.PUBBOX, 5, 0, 5)));
+    }
+}

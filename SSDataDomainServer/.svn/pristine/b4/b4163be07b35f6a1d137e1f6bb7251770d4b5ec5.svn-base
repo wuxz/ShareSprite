@@ -1,0 +1,897 @@
+package com.zhuaiwa.dd.tool;
+
+import java.util.ArrayList;
+
+import org.apache.cassandra.thrift.Cassandra;
+import org.apache.cassandra.thrift.CfDef;
+import org.apache.cassandra.thrift.KsDef;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
+import org.apache.commons.cli.PosixParser;
+import org.apache.thrift.protocol.TBinaryProtocol;
+import org.apache.thrift.transport.TFramedTransport;
+import org.apache.thrift.transport.TSocket;
+
+import com.zhuaiwa.dd.hector.HectorFactory;
+
+public class DDCreator {
+    
+    public static CfDef createAccount() {
+        
+        //
+        // Account Column Family Definition
+        //
+        CfDef Account = new CfDef()
+        .setKeyspace(HectorFactory.KEYSPACE_NAME)
+        .setName("Account")
+        .setComment("帐号信息")
+        .setColumn_type("Standard")
+        .setKey_validation_class("AsciiType")
+        .setComparator_type("AsciiType")
+        .setRow_cache_size(10000)
+        .setRow_cache_save_period_in_seconds(3600)
+        .setKey_cache_size(200000)
+        .setKey_cache_save_period_in_seconds(3600)
+        .setRead_repair_chance(1)
+        .setGc_grace_seconds(864000)
+        .setMin_compaction_threshold(4)
+        .setMax_compaction_threshold(16)
+        .setReplicate_on_write(true)
+        .setCompaction_strategy("SizeTieredCompactionStrategy");
+        Account.putToCompression_options("sstable_compression", "SnappyCompressor");
+        Account.putToCompression_options("chunk_length_kb", "64");
+        return Account;
+    }
+    
+    public static CfDef createProfile() {
+        
+        //
+        // Profile Column Family Definition
+        //
+        CfDef Profile = new CfDef()
+        .setKeyspace(HectorFactory.KEYSPACE_NAME)
+        .setName("Profile")
+        .setComment("个人信息")
+        .setColumn_type("Standard")
+        .setKey_validation_class("AsciiType")
+        .setComparator_type("AsciiType")
+        .setRow_cache_size(10000)
+        .setRow_cache_save_period_in_seconds(3600)
+        .setKey_cache_size(200000)
+        .setKey_cache_save_period_in_seconds(3600)
+        .setRead_repair_chance(1)
+        .setGc_grace_seconds(864000)
+        .setMin_compaction_threshold(4)
+        .setMax_compaction_threshold(16)
+        .setReplicate_on_write(true)
+        .setCompaction_strategy("SizeTieredCompactionStrategy");
+        Profile.putToCompression_options("sstable_compression", "SnappyCompressor");
+        Profile.putToCompression_options("chunk_length_kb", "64");
+        return Profile;
+    }
+    
+    public static CfDef createMessage() {
+        
+        //
+        // Message Column Family Definition
+        //
+        CfDef Message = new CfDef()
+        .setKeyspace(HectorFactory.KEYSPACE_NAME)
+        .setName("Message")
+        .setComment("消息")
+        .setColumn_type("Standard")
+        .setKey_validation_class("AsciiType")
+        .setComparator_type("AsciiType")
+        .setRow_cache_size(10000)
+        .setRow_cache_save_period_in_seconds(3600)
+        .setKey_cache_size(200000)
+        .setKey_cache_save_period_in_seconds(3600)
+        .setRead_repair_chance(1)
+        .setGc_grace_seconds(864000)
+        .setMin_compaction_threshold(4)
+        .setMax_compaction_threshold(16)
+        .setReplicate_on_write(true)
+        .setCompaction_strategy("SizeTieredCompactionStrategy");
+        Message.putToCompression_options("sstable_compression", "SnappyCompressor");
+        Message.putToCompression_options("chunk_length_kb", "64");
+        return Message;
+    }
+    
+    public static CfDef createTorrent() {
+        
+        //
+        // Torrent Column Family Definition
+        //
+        CfDef Torrent = new CfDef()
+        .setKeyspace(HectorFactory.KEYSPACE_NAME)
+        .setName("Torrent")
+        .setComment("BT种子")
+        .setColumn_type("Standard")
+        .setKey_validation_class("AsciiType")
+        .setComparator_type("AsciiType")
+        .setKey_cache_size(200000)
+        .setKey_cache_save_period_in_seconds(3600)
+        .setRead_repair_chance(1)
+        .setGc_grace_seconds(864000)
+        .setMin_compaction_threshold(4)
+        .setMax_compaction_threshold(16)
+        .setReplicate_on_write(true)
+        .setCompaction_strategy("SizeTieredCompactionStrategy");
+        Torrent.putToCompression_options("sstable_compression", "SnappyCompressor");
+        Torrent.putToCompression_options("chunk_length_kb", "64");
+        return Torrent;
+    }
+    
+    public static CfDef createEmailAccount() {
+        
+        //
+        // Torrent Column Family Definition
+        //
+        CfDef EmailAccount = new CfDef()
+        .setKeyspace(HectorFactory.KEYSPACE_NAME)
+        .setName("EmailAccount")
+        .setComment("通过Email查用户ID")
+        .setColumn_type("Standard")
+        .setKey_validation_class("AsciiType")
+        .setComparator_type("AsciiType")
+        .setRow_cache_size(10000)
+        .setRow_cache_save_period_in_seconds(3600)
+        .setKey_cache_size(200000)
+        .setKey_cache_save_period_in_seconds(3600)
+        .setRead_repair_chance(1)
+        .setGc_grace_seconds(864000)
+        .setMin_compaction_threshold(4)
+        .setMax_compaction_threshold(16)
+        .setReplicate_on_write(true)
+        .setCompaction_strategy("SizeTieredCompactionStrategy");
+        EmailAccount.putToCompression_options("sstable_compression", "SnappyCompressor");
+        EmailAccount.putToCompression_options("chunk_length_kb", "64");
+        return EmailAccount;
+    }
+    
+    public static CfDef createPhoneAccount() {
+        
+        //
+        // PhoneAccount Column Family Definition
+        //
+        CfDef PhoneAccount = new CfDef()
+        .setKeyspace(HectorFactory.KEYSPACE_NAME)
+        .setName("PhoneAccount")
+        .setComment("通过手机号查用户ID")
+        .setColumn_type("Standard")
+        .setKey_validation_class("AsciiType")
+        .setComparator_type("AsciiType")
+        .setRow_cache_size(10000)
+        .setRow_cache_save_period_in_seconds(3600)
+        .setKey_cache_size(200000)
+        .setKey_cache_save_period_in_seconds(3600)
+        .setRead_repair_chance(1)
+        .setGc_grace_seconds(864000)
+        .setMin_compaction_threshold(4)
+        .setMax_compaction_threshold(16)
+        .setReplicate_on_write(true)
+        .setCompaction_strategy("SizeTieredCompactionStrategy");
+        PhoneAccount.putToCompression_options("sstable_compression", "SnappyCompressor");
+        PhoneAccount.putToCompression_options("chunk_length_kb", "64");
+        return PhoneAccount;
+    }
+    
+    public static CfDef createNameAccount() {
+        
+        //
+        // NameAccount Column Family Definition
+        //
+        CfDef NameAccount = new CfDef()
+        .setKeyspace(HectorFactory.KEYSPACE_NAME)
+        .setName("NameAccount")
+        .setComment("通过用户名查用户ID")
+        .setColumn_type("Standard")
+        .setKey_validation_class("UTF8Type")
+        .setComparator_type("AsciiType")
+        .setRow_cache_size(10000)
+        .setRow_cache_save_period_in_seconds(3600)
+        .setKey_cache_size(200000)
+        .setKey_cache_save_period_in_seconds(3600)
+        .setRead_repair_chance(1)
+        .setGc_grace_seconds(864000)
+        .setMin_compaction_threshold(4)
+        .setMax_compaction_threshold(16)
+        .setReplicate_on_write(true)
+        .setCompaction_strategy("SizeTieredCompactionStrategy");
+        NameAccount.putToCompression_options("sstable_compression", "SnappyCompressor");
+        NameAccount.putToCompression_options("chunk_length_kb", "64");
+        return NameAccount;
+    }
+    
+    public static CfDef createFollowing() {
+        
+        //
+        // Following Column Family Definition
+        //
+        CfDef Following = new CfDef()
+        .setKeyspace(HectorFactory.KEYSPACE_NAME)
+        .setName("Following")
+        .setComment("关注列表")
+        .setColumn_type("Super")
+        .setKey_validation_class("AsciiType")
+        .setComparator_type("AsciiType")
+        .setKey_cache_size(200000)
+        .setKey_cache_save_period_in_seconds(3600)
+        .setRead_repair_chance(1)
+        .setGc_grace_seconds(864000)
+        .setMin_compaction_threshold(4)
+        .setMax_compaction_threshold(16)
+        .setReplicate_on_write(true)
+        .setCompaction_strategy("LeveledCompactionStrategy");
+        return Following;
+    }
+    
+    public static CfDef createFollower() {
+        
+        //
+        // Follower Column Family Definition
+        //
+        CfDef Follower = new CfDef()
+        .setKeyspace(HectorFactory.KEYSPACE_NAME)
+        .setName("Follower")
+        .setComment("粉丝列表")
+        .setColumn_type("Super")
+        .setKey_validation_class("AsciiType")
+        .setComparator_type("AsciiType")
+        .setKey_cache_size(200000)
+        .setKey_cache_save_period_in_seconds(3600)
+        .setRead_repair_chance(1)
+        .setGc_grace_seconds(864000)
+        .setMin_compaction_threshold(4)
+        .setMax_compaction_threshold(16)
+        .setReplicate_on_write(true)
+        .setCompaction_strategy("LeveledCompactionStrategy");
+        return Follower;
+    }
+    
+    public static CfDef createTimeFollower() {
+        
+        //
+        // Follower Column Family Definition
+        //
+        CfDef TimeFollower = new CfDef()
+        .setKeyspace(HectorFactory.KEYSPACE_NAME)
+        .setName("TimeFollower")
+        .setComment("按时间排序的粉丝列表")
+        .setColumn_type("Super")
+        .setKey_validation_class("AsciiType")
+        .setComparator_type("CompositeType(ReversedType(LongType),AsciiType)")
+        .setKey_cache_size(200000)
+        .setKey_cache_save_period_in_seconds(3600)
+        .setRead_repair_chance(1)
+        .setGc_grace_seconds(864000)
+        .setMin_compaction_threshold(4)
+        .setMax_compaction_threshold(16)
+        .setReplicate_on_write(true)
+        .setCompaction_strategy("LeveledCompactionStrategy");
+        return TimeFollower;
+    }
+    
+    public static CfDef createInviting() {
+        
+        //
+        // Inviting Column Family Definition
+        //
+        CfDef Inviting = new CfDef()
+        .setKeyspace(HectorFactory.KEYSPACE_NAME)
+        .setName("Inviting")
+        .setComment("邀请列表")
+        .setColumn_type("Super")
+        .setKey_validation_class("AsciiType")
+        .setComparator_type("AsciiType")
+        .setKey_cache_size(200000)
+        .setKey_cache_save_period_in_seconds(3600)
+        .setRead_repair_chance(1)
+        .setGc_grace_seconds(864000)
+        .setMin_compaction_threshold(4)
+        .setMax_compaction_threshold(16)
+        .setReplicate_on_write(true)
+        .setCompaction_strategy("LeveledCompactionStrategy");
+        return Inviting;
+    }
+    
+    public static CfDef createInviter() {
+        
+        //
+        // Inviter Column Family Definition
+        //
+        CfDef Inviter = new CfDef()
+        .setKeyspace(HectorFactory.KEYSPACE_NAME)
+        .setName("Inviter")
+        .setComment("被邀请列表")
+        .setColumn_type("Super")
+        .setKey_validation_class("AsciiType")
+        .setComparator_type("AsciiType")
+        .setKey_cache_size(200000)
+        .setKey_cache_save_period_in_seconds(3600)
+        .setRead_repair_chance(1)
+        .setGc_grace_seconds(864000)
+        .setMin_compaction_threshold(4)
+        .setMax_compaction_threshold(16)
+        .setReplicate_on_write(true)
+        .setCompaction_strategy("LeveledCompactionStrategy");
+        return Inviter;
+    }
+    
+    public static CfDef createContact() {
+        
+        //
+        // Contact Column Family Definition
+        //
+        CfDef Contact = new CfDef()
+        .setKeyspace(HectorFactory.KEYSPACE_NAME)
+        .setName("Contact")
+        .setComment("联系人")
+        .setColumn_type("Super")
+        .setKey_validation_class("AsciiType")
+        .setComparator_type("AsciiType")
+        .setKey_cache_size(200000)
+        .setKey_cache_save_period_in_seconds(3600)
+        .setRead_repair_chance(1)
+        .setGc_grace_seconds(864000)
+        .setMin_compaction_threshold(4)
+        .setMax_compaction_threshold(16)
+        .setReplicate_on_write(true)
+        .setCompaction_strategy("LeveledCompactionStrategy");
+        return Contact;
+    }
+    
+    public static CfDef createGroup() {
+        
+        //
+        // Group Column Family Definition
+        //
+        CfDef Group = new CfDef()
+        .setKeyspace(HectorFactory.KEYSPACE_NAME)
+        .setName("Group")
+        .setComment("联系人分组")
+        .setColumn_type("Super")
+        .setKey_validation_class("AsciiType")
+        .setComparator_type("AsciiType")
+        .setKey_cache_size(200000)
+        .setKey_cache_save_period_in_seconds(3600)
+        .setRead_repair_chance(1)
+        .setGc_grace_seconds(864000)
+        .setMin_compaction_threshold(4)
+        .setMax_compaction_threshold(16)
+        .setReplicate_on_write(true)
+        .setCompaction_strategy("LeveledCompactionStrategy");
+        return Group;
+    }
+    
+    public static CfDef createMember() {
+        
+        //
+        // Member Column Family Definition
+        //
+        CfDef Member = new CfDef()
+        .setKeyspace(HectorFactory.KEYSPACE_NAME)
+        .setName("Member")
+        .setComment("联系人分组中的成员")
+        .setColumn_type("Super")
+        .setKey_validation_class("AsciiType")
+        .setComparator_type("AsciiType")
+        .setKey_cache_size(200000)
+        .setKey_cache_save_period_in_seconds(3600)
+        .setRead_repair_chance(1)
+        .setGc_grace_seconds(864000)
+        .setMin_compaction_threshold(4)
+        .setMax_compaction_threshold(16)
+        .setReplicate_on_write(true)
+        .setCompaction_strategy("LeveledCompactionStrategy");
+        return Member;
+    }
+    
+    public static CfDef createPubBox() {
+        
+        //
+        // PubBox Column Family Definition
+        //
+        CfDef Pubbox = new CfDef()
+        .setKeyspace(HectorFactory.KEYSPACE_NAME)
+        .setName("PubBox")
+        .setComment("用户公开分享消息列表")
+        .setColumn_type("Super")
+        .setKey_validation_class("AsciiType")
+        .setComparator_type("ReversedType(AsciiType)")
+        .setKey_cache_size(200000)
+        .setKey_cache_save_period_in_seconds(3600)
+        .setRead_repair_chance(1)
+        .setGc_grace_seconds(864000)
+        .setMin_compaction_threshold(4)
+        .setMax_compaction_threshold(16)
+        .setReplicate_on_write(true)
+        .setCompaction_strategy("LeveledCompactionStrategy");
+        return Pubbox;
+    }
+    
+    public static CfDef createInBox() {
+        
+        //
+        // InBox Column Family Definition
+        //
+        CfDef InBox = new CfDef()
+        .setKeyspace(HectorFactory.KEYSPACE_NAME)
+        .setName("InBox")
+        .setComment("用户私信的收件箱")
+        .setColumn_type("Super")
+        .setKey_validation_class("AsciiType")
+        .setComparator_type("ReversedType(AsciiType)")
+        .setKey_cache_size(200000)
+        .setKey_cache_save_period_in_seconds(3600)
+        .setRead_repair_chance(1)
+        .setGc_grace_seconds(864000)
+        .setMin_compaction_threshold(4)
+        .setMax_compaction_threshold(16)
+        .setReplicate_on_write(true)
+        .setCompaction_strategy("LeveledCompactionStrategy");
+        return InBox;
+    }
+    
+    public static CfDef createOutBox() {
+        
+        //
+        // OutBox Column Family Definition
+        //
+        CfDef OutBox = new CfDef()
+        .setKeyspace(HectorFactory.KEYSPACE_NAME)
+        .setName("OutBox")
+        .setComment("用户私信的发件箱")
+        .setColumn_type("Super")
+        .setKey_validation_class("AsciiType")
+        .setComparator_type("ReversedType(AsciiType)")
+        .setKey_cache_size(200000)
+        .setKey_cache_save_period_in_seconds(3600)
+        .setRead_repair_chance(1)
+        .setGc_grace_seconds(864000)
+        .setMin_compaction_threshold(4)
+        .setMax_compaction_threshold(16)
+        .setReplicate_on_write(true)
+        .setCompaction_strategy("LeveledCompactionStrategy");
+        return OutBox;
+    }
+    
+    public static CfDef createFavorite() {
+
+        //
+        // Favorite Column Family Definition
+        //
+        CfDef Favorite = new CfDef()
+        .setKeyspace(HectorFactory.KEYSPACE_NAME)
+        .setName("Favorite")
+        .setComment("用户的收藏夹")
+        .setColumn_type("Super")
+        .setKey_validation_class("AsciiType")
+        .setComparator_type("ReversedType(AsciiType)")
+        .setKey_cache_size(200000)
+        .setKey_cache_save_period_in_seconds(3600)
+        .setRead_repair_chance(1)
+        .setGc_grace_seconds(864000)
+        .setMin_compaction_threshold(4)
+        .setMax_compaction_threshold(16)
+        .setReplicate_on_write(true)
+        .setCompaction_strategy("LeveledCompactionStrategy");
+        return Favorite;
+    }
+    
+    public static CfDef createComment() {
+
+        //
+        // Comment Column Family Definition
+        //
+        CfDef Comment = new CfDef()
+        .setKeyspace(HectorFactory.KEYSPACE_NAME)
+        .setName("Comment")
+        .setComment("消息的评论列表")
+        .setColumn_type("Super")
+        .setKey_validation_class("AsciiType")
+        .setComparator_type("ReversedType(AsciiType)")
+        .setKey_cache_size(200000)
+        .setKey_cache_save_period_in_seconds(3600)
+        .setRead_repair_chance(1)
+        .setGc_grace_seconds(864000)
+        .setMin_compaction_threshold(4)
+        .setMax_compaction_threshold(16)
+        .setReplicate_on_write(true)
+        .setCompaction_strategy("LeveledCompactionStrategy");
+        return Comment;
+    }
+    
+    public static CfDef createCounter() {
+        
+        //
+        // Counter Column Family Definition
+        //
+        CfDef Counter = new CfDef()
+        .setKeyspace(HectorFactory.KEYSPACE_NAME)
+        .setName("Counter")
+        .setComment("计数器")
+        .setColumn_type("Standard")
+        .setKey_validation_class("AsciiType")
+        .setDefault_validation_class("CounterColumnType")
+        .setComparator_type("BytesType")
+        .setKey_cache_size(200000)
+        .setKey_cache_save_period_in_seconds(3600)
+        .setRead_repair_chance(1)
+        .setGc_grace_seconds(864000)
+        .setMin_compaction_threshold(4)
+        .setMax_compaction_threshold(16)
+        .setReplicate_on_write(true)
+        .setCompaction_strategy("LeveledCompactionStrategy");
+        return Counter;
+    }
+
+    public static KsDef createDD() {
+        KsDef SSDataDomain = new KsDef();
+        SSDataDomain.setName(HectorFactory.KEYSPACE_NAME);
+        SSDataDomain.setStrategy_class("org.apache.cassandra.locator.SimpleStrategy");
+        SSDataDomain.setDurable_writes(true);
+        SSDataDomain.putToStrategy_options("replication_factor", "3");
+        
+        SSDataDomain.setCf_defs(new ArrayList<CfDef>());
+        return SSDataDomain;
+    }
+
+    private static final String HOST_OPT_LONG = "host";
+    private static final String HOST_OPT_SHORT = "h";
+    private static final String PORT_OPT_LONG = "port";
+    private static final String PORT_OPT_SHORT = "p";
+    private static final String ADD_DATADOMAIN_LONG = "add-datadomain-keyspace";
+    private static final String ADD_ACCOUNT_LONG = "add-account-column-family";
+    private static final String ADD_PROFILE_LONG = "add-profile-column-family";
+    private static final String ADD_MESSAGE_LONG = "add-message-column-family";
+    private static final String ADD_TORRENT_LONG = "add-torrent-column-family";
+    private static final String ADD_EMAILACCOUNT_LONG = "add-email-account-column-family";
+    private static final String ADD_PHONEACCOUNT_LONG = "add-phone-account-column-family";
+    private static final String ADD_NAMEACCOUNT_LONG = "add-name-account-column-family";
+    private static final String ADD_FOLLOWING_LONG = "add-following-column-family";
+    private static final String ADD_FOLLOWER_LONG = "add-follower-column-family";
+    private static final String ADD_TIMEFOLLOWER_LONG = "add-time-follower-column-family";
+    private static final String ADD_INVITING_LONG = "add-inviting-column-family";
+    private static final String ADD_INVITER_LONG = "add-inviter-column-family";
+    private static final String ADD_CONTACT_LONG = "add-contact-column-family";
+    private static final String ADD_GROUP_LONG = "add-group-column-family";
+    private static final String ADD_MEMBER_LONG = "add-member-column-family";
+    private static final String ADD_PUBBOX_LONG = "add-pubbox-column-family";
+    private static final String ADD_INBOX_LONG = "add-inbox-column-family";
+    private static final String ADD_OUTBOX_LONG = "add-outbox-column-family";
+    private static final String ADD_FAVORITE_LONG = "add-favorite-column-family";
+    private static final String ADD_COMMENT_LONG = "add-comment-column-family";
+    private static final String ADD_COUNTER_LONG = "add-counter-column-family";
+
+    private static Options options = new Options();;
+    static
+    {
+        Option optHost = new Option(HOST_OPT_SHORT, HOST_OPT_LONG, true, "node hostname or ip address");
+        Option optPort = new Option(PORT_OPT_SHORT, PORT_OPT_LONG, true, "remote jmx agent port number");
+        Option optAddDataDomain = new Option(null, ADD_DATADOMAIN_LONG, false, "add SSDataDomain keyspace");
+        Option optAddAccount = new Option(null, ADD_ACCOUNT_LONG, false, "add Account column family");
+        Option optAddProfile = new Option(null, ADD_PROFILE_LONG, false, "add Profile column family");
+        Option optAddMessage = new Option(null, ADD_MESSAGE_LONG, false, "add Message column family");
+        Option optAddTorrent = new Option(null, ADD_TORRENT_LONG, false, "add Torrent column family");
+        Option optAddEmailAccount = new Option(null, ADD_EMAILACCOUNT_LONG, false, "add EmailAccount column family");
+        Option optAddPhoneAccount = new Option(null, ADD_PHONEACCOUNT_LONG, false, "add PhoneAccount column family");
+        Option optAddNameAccount = new Option(null, ADD_NAMEACCOUNT_LONG, false, "add NameAccount column family");
+        Option optAddFollowing = new Option(null, ADD_FOLLOWING_LONG, false, "add Following column family");
+        Option optAddFollower = new Option(null, ADD_FOLLOWER_LONG, false, "add Follower column family");
+        Option optAddTimeFollower = new Option(null, ADD_TIMEFOLLOWER_LONG, false, "add TimeFollower column family");
+        Option optAddInviting = new Option(null, ADD_INVITING_LONG, false, "add Inviting column family");
+        Option optAddInviter = new Option(null, ADD_INVITER_LONG, false, "add Inviter column family");
+        Option optAddContact = new Option(null, ADD_CONTACT_LONG, false, "add Contact column family");
+        Option optAddGroup = new Option(null, ADD_GROUP_LONG, false, "add Group column family");
+        Option optAddMember = new Option(null, ADD_MEMBER_LONG, false, "add Member column family");
+        Option optAddPubBox = new Option(null, ADD_PUBBOX_LONG, false, "add PubBox column family");
+        Option optAddInBox = new Option(null, ADD_INBOX_LONG, false, "add InBox column family");
+        Option optAddOutBox = new Option(null, ADD_OUTBOX_LONG, false, "add OutBox column family");
+        Option optAddFavorite = new Option(null, ADD_FAVORITE_LONG, false, "add Favorite column family");
+        Option optAddComment = new Option(null, ADD_COMMENT_LONG, false, "add Comment column family");
+        Option optAddCounter = new Option(null, ADD_COUNTER_LONG, false, "add Counter column family");
+        options.addOption(optAddDataDomain);
+        options.addOption(optHost);
+        options.addOption(optPort);
+        options.addOption(optAddAccount);
+        options.addOption(optAddProfile);
+        options.addOption(optAddMessage);
+        options.addOption(optAddTorrent);
+        options.addOption(optAddEmailAccount);
+        options.addOption(optAddPhoneAccount);
+        options.addOption(optAddNameAccount);
+        options.addOption(optAddFollowing);
+        options.addOption(optAddFollower);
+        options.addOption(optAddTimeFollower);
+        options.addOption(optAddInviting);
+        options.addOption(optAddInviter);
+        options.addOption(optAddContact);
+        options.addOption(optAddGroup);
+        options.addOption(optAddMember);
+        options.addOption(optAddPubBox);
+        options.addOption(optAddInBox);
+        options.addOption(optAddOutBox);
+        options.addOption(optAddFavorite);
+        options.addOption(optAddComment);
+        options.addOption(optAddCounter);
+    }
+    public static void printUsage() {
+        HelpFormatter hf = new HelpFormatter();
+        String usage = String.format("java %s [--host <arg>] [--port <arg>]%n", DDCreator.class.getName());
+        hf.printHelp(usage, "", options, "");
+    }
+    
+    public static void main(String[] args) throws Exception {
+        CommandLineParser parser = new PosixParser();
+        CommandLine cmd = null;
+        
+        try {
+            cmd = parser.parse(options, args);
+        } catch (ParseException parseExcep) {
+            System.err.println(parseExcep);
+            printUsage();
+            System.exit(1);
+        }
+        
+        String host = cmd.getOptionValue(HOST_OPT_LONG, "127.0.0.1");
+        int port = Integer.parseInt(cmd.getOptionValue(PORT_OPT_LONG, "9160"));
+        
+        TSocket socket = new TSocket(host, port);
+        TFramedTransport transport = new TFramedTransport(socket, 10*1024*1024);
+        Cassandra.Client cassandra = new Cassandra.Client(new TBinaryProtocol(transport));
+        socket.open();
+        
+        boolean hasoption = false;
+        boolean hassetkeyspace = false;
+        
+        if (cmd.hasOption(ADD_DATADOMAIN_LONG)) {
+            hasoption = true;
+            String schemaId = cassandra.system_add_keyspace(createDD());
+            System.out.println("Return SSDataDomain keyspace schema id: " + schemaId);
+        }
+        
+        if (cmd.hasOption(ADD_ACCOUNT_LONG)) {
+            hasoption = true;
+            CfDef cf = createAccount();
+            if (!hassetkeyspace) {
+                cassandra.set_keyspace(cf.getKeyspace());
+                hassetkeyspace = true;
+            }
+            String schemaId = cassandra.system_add_column_family(cf);
+            System.out.println("Return Account column family schema id: " + schemaId);
+        }
+        
+        if (cmd.hasOption(ADD_PROFILE_LONG)) {
+            hasoption = true;
+            CfDef cf = createProfile();
+            if (!hassetkeyspace) {
+                cassandra.set_keyspace(cf.getKeyspace());
+                hassetkeyspace = true;
+            }
+            String schemaId = cassandra.system_add_column_family(cf);
+            System.out.println("Return Profile column family schema id: " + schemaId);
+        }
+        
+        if (cmd.hasOption(ADD_MESSAGE_LONG)) {
+            hasoption = true;
+            CfDef cf = createMessage();
+            if (!hassetkeyspace) {
+                cassandra.set_keyspace(cf.getKeyspace());
+                hassetkeyspace = true;
+            }
+            String schemaId = cassandra.system_add_column_family(cf);
+            System.out.println("Return Message column family schema id: " + schemaId);
+        }
+        
+        if (cmd.hasOption(ADD_TORRENT_LONG)) {
+            hasoption = true;
+            CfDef cf = createTorrent();
+            if (!hassetkeyspace) {
+                cassandra.set_keyspace(cf.getKeyspace());
+                hassetkeyspace = true;
+            }
+            String schemaId = cassandra.system_add_column_family(cf);
+            System.out.println("Return Torrent column family schema id: " + schemaId);
+        }
+        
+        if (cmd.hasOption(ADD_EMAILACCOUNT_LONG)) {
+            hasoption = true;
+            CfDef cf = createEmailAccount();
+            if (!hassetkeyspace) {
+                cassandra.set_keyspace(cf.getKeyspace());
+                hassetkeyspace = true;
+            }
+            String schemaId = cassandra.system_add_column_family(cf);
+            System.out.println("Return EmailAccount column family schema id: " + schemaId);
+        }
+        
+        if (cmd.hasOption(ADD_PHONEACCOUNT_LONG)) {
+            hasoption = true;
+            CfDef cf = createPhoneAccount();
+            if (!hassetkeyspace) {
+                cassandra.set_keyspace(cf.getKeyspace());
+                hassetkeyspace = true;
+            }
+            String schemaId = cassandra.system_add_column_family(cf);
+            System.out.println("Return PhoneAccount column family schema id: " + schemaId);
+        }
+        
+        if (cmd.hasOption(ADD_NAMEACCOUNT_LONG)) {
+            hasoption = true;
+            CfDef cf = createNameAccount();
+            if (!hassetkeyspace) {
+                cassandra.set_keyspace(cf.getKeyspace());
+                hassetkeyspace = true;
+            }
+            String schemaId = cassandra.system_add_column_family(cf);
+            System.out.println("Return NameAccount column family schema id: " + schemaId);
+        }
+        
+        if (cmd.hasOption(ADD_FOLLOWING_LONG)) {
+            hasoption = true;
+            CfDef cf = createFollowing();
+            if (!hassetkeyspace) {
+                cassandra.set_keyspace(cf.getKeyspace());
+                hassetkeyspace = true;
+            }
+            String schemaId = cassandra.system_add_column_family(cf);
+            System.out.println("Return Following column family schema id: " + schemaId);
+        }
+        
+        if (cmd.hasOption(ADD_FOLLOWER_LONG)) {
+            hasoption = true;
+            CfDef cf = createFollower();
+            if (!hassetkeyspace) {
+                cassandra.set_keyspace(cf.getKeyspace());
+                hassetkeyspace = true;
+            }
+            String schemaId = cassandra.system_add_column_family(cf);
+            System.out.println("Return Follower column family schema id: " + schemaId);
+        }
+        
+        if (cmd.hasOption(ADD_TIMEFOLLOWER_LONG)) {
+            hasoption = true;
+            CfDef cf = createTimeFollower();
+            if (!hassetkeyspace) {
+                cassandra.set_keyspace(cf.getKeyspace());
+                hassetkeyspace = true;
+            }
+            String schemaId = cassandra.system_add_column_family(cf);
+            System.out.println("Return TimeFollower column family schema id: " + schemaId);
+        }
+        
+        if (cmd.hasOption(ADD_INVITING_LONG)) {
+            hasoption = true;
+            CfDef cf = createInviting();
+            if (!hassetkeyspace) {
+                cassandra.set_keyspace(cf.getKeyspace());
+                hassetkeyspace = true;
+            }
+            String schemaId = cassandra.system_add_column_family(cf);
+            System.out.println("Return Inviting column family schema id: " + schemaId);
+        }
+        
+        if (cmd.hasOption(ADD_INVITER_LONG)) {
+            hasoption = true;
+            CfDef cf = createInviter();
+            if (!hassetkeyspace) {
+                cassandra.set_keyspace(cf.getKeyspace());
+                hassetkeyspace = true;
+            }
+            String schemaId = cassandra.system_add_column_family(cf);
+            System.out.println("Return Inviter column family schema id: " + schemaId);
+        }
+        
+        if (cmd.hasOption(ADD_CONTACT_LONG)) {
+            hasoption = true;
+            CfDef cf = createContact();
+            if (!hassetkeyspace) {
+                cassandra.set_keyspace(cf.getKeyspace());
+                hassetkeyspace = true;
+            }
+            String schemaId = cassandra.system_add_column_family(cf);
+            System.out.println("Return Contact column family schema id: " + schemaId);
+        }
+        
+        if (cmd.hasOption(ADD_GROUP_LONG)) {
+            hasoption = true;
+            CfDef cf = createGroup();
+            if (!hassetkeyspace) {
+                cassandra.set_keyspace(cf.getKeyspace());
+                hassetkeyspace = true;
+            }
+            String schemaId = cassandra.system_add_column_family(cf);
+            System.out.println("Return Group column family schema id: " + schemaId);
+        }
+        
+        if (cmd.hasOption(ADD_MEMBER_LONG)) {
+            hasoption = true;
+            CfDef cf = createMember();
+            if (!hassetkeyspace) {
+                cassandra.set_keyspace(cf.getKeyspace());
+                hassetkeyspace = true;
+            }
+            String schemaId = cassandra.system_add_column_family(cf);
+            System.out.println("Return Member column family schema id: " + schemaId);
+        }
+        
+        if (cmd.hasOption(ADD_PUBBOX_LONG)) {
+            hasoption = true;
+            CfDef cf = createPubBox();
+            if (!hassetkeyspace) {
+                cassandra.set_keyspace(cf.getKeyspace());
+                hassetkeyspace = true;
+            }
+            String schemaId = cassandra.system_add_column_family(cf);
+            System.out.println("Return PubBox column family schema id: " + schemaId);
+        }
+        
+        if (cmd.hasOption(ADD_INBOX_LONG)) {
+            hasoption = true;
+            CfDef cf = createInBox();
+            if (!hassetkeyspace) {
+                cassandra.set_keyspace(cf.getKeyspace());
+                hassetkeyspace = true;
+            }
+            String schemaId = cassandra.system_add_column_family(cf);
+            System.out.println("Return InBox column family schema id: " + schemaId);
+        }
+        
+        if (cmd.hasOption(ADD_OUTBOX_LONG)) {
+            hasoption = true;
+            CfDef cf = createOutBox();
+            if (!hassetkeyspace) {
+                cassandra.set_keyspace(cf.getKeyspace());
+                hassetkeyspace = true;
+            }
+            String schemaId = cassandra.system_add_column_family(cf);
+            System.out.println("Return OutBox column family schema id: " + schemaId);
+        }
+        
+        if (cmd.hasOption(ADD_FAVORITE_LONG)) {
+            hasoption = true;
+            CfDef cf = createFavorite();
+            if (!hassetkeyspace) {
+                cassandra.set_keyspace(cf.getKeyspace());
+                hassetkeyspace = true;
+            }
+            String schemaId = cassandra.system_add_column_family(cf);
+            System.out.println("Return Favorite column family schema id: " + schemaId);
+        }
+        
+        if (cmd.hasOption(ADD_COMMENT_LONG)) {
+            hasoption = true;
+            CfDef cf = createComment();
+            if (!hassetkeyspace) {
+                cassandra.set_keyspace(cf.getKeyspace());
+                hassetkeyspace = true;
+            }
+            String schemaId = cassandra.system_add_column_family(cf);
+            System.out.println("Return Comment column family schema id: " + schemaId);
+        }
+        
+        if (cmd.hasOption(ADD_COUNTER_LONG)) {
+            hasoption = true;
+            CfDef cf = createCounter();
+            if (!hassetkeyspace) {
+                cassandra.set_keyspace(cf.getKeyspace());
+                hassetkeyspace = true;
+            }
+            String schemaId = cassandra.system_add_column_family(cf);
+            System.out.println("Return Counter column family schema id: " + schemaId);
+        }
+        
+        socket.close();
+        
+        if (!hasoption) {
+            printUsage();
+            System.exit(1);
+        }
+    }
+
+}

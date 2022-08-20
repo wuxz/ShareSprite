@@ -1,0 +1,36 @@
+#!/bin/sh
+
+this="${BASH_SOURCE-$0}"
+if readlink -f "$this" > /dev/null 2>&1
+then
+  this=`readlink -f "$this"`
+fi
+basedir=`dirname "$this"`
+basedir=`cd "$basedir">/dev/null; pwd`
+
+. $basedir/env
+
+print_process_info()
+{
+  pid=$1
+  echo "process is running."
+  echo ""
+  ps -fp $pid|cat
+  echo ""
+  netstat -antp|grep "$pid/java"
+}
+
+[ -f $PIDPATH ] && pid=$(cat $PIDPATH)
+[ -n "$pid" ] && ps -p $pid|grep $pid >/dev/null
+if [ $? -eq 0 ]; then
+  print_process_info $pid
+  exit
+fi
+
+pid=$(netstat -ntlp|grep java|egrep ":$JMX_PORT"|awk '{print $7}'|awk -F / '{print $1}')
+if [ -n "$pid" ]; then
+  print_process_info $pid
+  exit
+fi
+
+echo "process is stopped."

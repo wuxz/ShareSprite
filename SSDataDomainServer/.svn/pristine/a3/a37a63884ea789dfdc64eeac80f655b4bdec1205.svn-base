@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="datadomain" default="help" basedir=".">
+
+    <property file="build.properties"/>
+    <property file="build.properties.default"/>
+
+	<property name="app.name"      value="datadomain"/>
+	<property name="app.path"      value="/${app.name}"/>
+	<property name="app.version"   value="1.1.5"/>
+
+	<property name="src.home"      value="${basedir}/src"/>
+	<property name="src.java"      value="${src.home}" />
+	<property name="src.gen-java"  value="${basedir}/gen-java" />
+	<property name="src.cassandra" value="${basedir}/cassandra" />
+    <property name="src.search"     value="${basedir}/search"/>
+	<property name="test.home"     value="${basedir}/test" />
+	<property name="lib.home"      value="${basedir}/lib"/>
+	<property name="docs.home"     value="${basedir}/docs"/>
+	<property name="build.home"    value="${basedir}/build"/>
+	<property name="build.classes" value="${build.home}/classes"/>
+	<property name="dist.home"     value="${basedir}/dist"/>
+	<property name="conf.home"     value="${basedir}/conf"/>
+    <property name="tar.basename"  value="${app.name}-${app.version}"/>
+
+	<property name="compile.debug"       value="true"/>
+	<property name="compile.deprecation" value="false"/>
+	<property name="compile.optimize"    value="true"/>
+	<property name="compile.encoding"    value="utf-8" />
+	<property name="compile.fork"        value="true" />
+	<property name="compile.source"      value="1.6" />
+
+	<available property="junit.present" classname="junit.framework.TestCase" />
+
+	<path id="compile.classpath">
+		<fileset dir="${lib.home}">
+			<include name="*.jar"/>
+		</fileset>
+	</path>
+
+	<path id="junits.libs">
+		<path location="${junit.jar}"/>
+	</path>
+
+	<!-- 有关svn的变量 -->
+	<target name="init.svn.variables">
+		<!-- 检查svn jar包是否存在 -->
+		<available file="svntask.jar" property="svntask.jar.available">
+			<filepath>
+				<pathelement location="${ant.home}/lib"/>
+				<pathelement location="${lib.home}"/>
+			</filepath>
+		</available>
+		<available file="svnkit.jar" property="svnkit.jar.available">
+			<filepath>
+				<pathelement location="${ant.home}/lib"/>
+				<pathelement location="${lib.home}"/>
+			</filepath>
+		</available>
+	</target>
+
+	<!-- 如果svn不存在，显示错误消息 -->
+	<target name="svntask.jar.available" depends="init.svn.variables" unless="svntask.jar.available" >
+		<fail message="expecting svntask.jar"/>
+	</target>
+	<target name="svnkit.jar.available" depends="init.svn.variables" unless="svnkit.jar.available" >
+		<fail message="expecting svnkit.jar"/>
+	</target>
+
+	<!-- 如果svn存在，定义任务 -->
+	<target name="init.svn.taskdefs" depends="svntask.jar.available, svnkit.jar.available" unless="taskdefs.svn.init">
+		<taskdef resource="com/googlecode/svntask/svntask.xml">
+			<!-- 此处需要下载svntask：http://code.google.com/p/svntask  -->
+			<!-- 然后将下面两个jar解压到ANT_HOME/lib目录下或直接放在lib -->
+			<!-- 目录下并取消下面的注释                                 -->
+			<classpath>
+		        <path id="ant.classpath">
+		            <fileset dir="${ant.home}/lib">
+		              <include name="*.jar"/>
+		            </fileset>
+		        </path>
+			</classpath>
+		</taskdef>
+		<property name="taskdefs.svn.init" value="true"/>
+	</target>
+
+	<target name="help">
+		<echo message="" />
+		<echo message="${app.name} application build file" />
+		<echo message="------------------------------------------------------" />
+		<echo message="" />
+		<echo message="Available targets are:" />
+		<echo message="" />
+		<echo message="init		 Make init dirs" />
+		<echo message="clean     Clean output dirs" />
+		<echo message="compile   Compile main Java sources" />
+		<echo message="compile-test   Compile main Java sources" />
+		<echo message="dist       Create jar file" />
+	</target>
+
+	<!-- ====================================================== -->
+	<!-- Stuff needed by all targets                            -->
+	<!-- ====================================================== -->
+	<target name="init" depends="init.svn.taskdefs" description="Make init dirs">
+		<mkdir dir="${build.home}" />
+		<mkdir dir="${dist.home}" />
+	</target>
+
+	<!-- ====================================================== -->
+	<!-- Clean all build file and deployed web app              -->
+	<!-- ====================================================== -->
+	<target name="clean" description="Clean output dirs">
+		<delete dir="${build.home}" />
+		<delete dir="${dist.home}"/>
+	</target>
+
+	<!-- ====================================================== -->
+	<!-- Comile all classes                                     -->
+	<!-- ====================================================== -->
+	<target name="compile" depends="init" description="Compile Java sources">
+		<mkdir  dir="${build.classes}"/>
+
+		<!-- Compile Java classes as necessary -->
+		<javac
+            destdir="${build.classes}"
+           encoding="${compile.encoding}"
+              debug="${compile.debug}"
+        deprecation="${compile.deprecation}"
+           optimize="${compile.optimize}"
+               fork="${compile.fork}"
+             source="${compile.source}"
+			 target="1.6"
+             includes="**/*.java">
+			<classpath>
+				<path refid="compile.classpath"/>
+			</classpath>
+			<src path="${src.java}" />
+			<src path="${src.gen-java}" />
+			<src path="${src.cassandra}" />
+            <src path="${src.search}" />
+		</javac>
+	</target>
+
+	<target name="compile-test" depends="compile" description="Compile main Java sources">
+		<mkdir  dir="${build.classes}"/>
+		<javac destdir="${build.classes}"
+            encoding="${build.encoding}"
+            includes="**/*.java"
+            debug="${debug}"
+            fork="${fork}"
+            optimize="${optimize}"
+            source="${source}"
+            deprecation="${deprecation}">
+			<src path="${test.home}" />
+			<classpath refid="compile.classpath" />
+		</javac>
+	</target>
+
+	<target name="dist" depends="compile" description="Create binary distribution">
+		<delete dir="${dist.home}" includes="${app.name}-*.jar"/>
+
+		<!-- Get revision number -->
+		<svn>
+			<info path="${basedir}" committedRevisionProperty="revision" />
+		</svn>
+
+		<!-- Create application JAR file -->
+		<jar destfile="${dist.home}/${app.name}-${app.version}.jar">
+			<fileset dir="${build.classes}">
+				<include name="**/*.class" />
+			</fileset>
+			<manifest>
+				<attribute name="Revision" value="${revision}"/>
+			</manifest>
+		</jar>
+	</target>
+	
+	<target name="dos2unix"  description="dos2unix">
+        <replaceregexp  match="&#13;&#10;" replace="&#10;" flags="g" byline="false">
+            <fileset dir="${conf.home}">
+                <include name="**" />
+            </fileset>
+            <fileset dir="${basedir}/bin">
+                <include name="**" />
+            </fileset>
+        </replaceregexp>
+	</target>
+	
+	<target name="tar" depends="dist, dos2unix">
+		<delete dir="${dist.home}" includes="${app.name}-**.tar.gz"/>
+		
+		<tar destfile="${dist.home}/${tar.basename}-bin.tar.gz" compression="gzip">
+			<tarfileset dir="${basedir}/bin" prefix="${tar.basename}/bin" filemode="755">
+				<include name="**"/>
+			</tarfileset>
+			<tarfileset dir="${basedir}/conf" prefix="${tar.basename}/conf">
+				<include name="**"/>
+			</tarfileset>
+			<tarfileset dir="${basedir}/lib" prefix="${tar.basename}/lib">
+				<include name="**.jar"/>
+			</tarfileset>
+			<tarfileset dir="${basedir}/ext" prefix="${tar.basename}/ext">
+				<include name="**"/>
+			</tarfileset>
+			<tarfileset dir="${dist.home}" prefix="${tar.basename}/lib">
+				<include name="**.jar"/>
+			</tarfileset>
+			<tarfileset dir="${basedir}/doc" prefix="${tar.basename}/doc">
+				<include name="**"/>
+			</tarfileset>
+		</tar>
+	</target>
+	
+	<target name="upload" depends="tar">
+		<scp file="${dist.home}/${tar.basename}-bin.tar.gz" todir="root:jklfds56@192.168.1.51:/c/baiku-download/datadomain"/>
+	</target>
+</project>

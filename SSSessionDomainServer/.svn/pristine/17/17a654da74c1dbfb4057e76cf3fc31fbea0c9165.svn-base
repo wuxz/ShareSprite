@@ -1,0 +1,52 @@
+#sms url parameter
+sms.url.ip=59.151.117.240
+sms.url.port=8018
+sms.url.UserId=test
+sms.url.loginPWD=test
+sms.url.spNum=106575021110
+
+#short url api
+short.api.url=http://59.151.117.230:8680/
+
+
+########search#######
+#activemq
+queueName = zhuaiwa1
+#brokerURL= tcp://localhost:61616
+#brokerURL= tcp://192.168.30.100:1616
+brokerURL= tcp://10.130.29.237:61616
+
+#solr
+#solrURL = http://localhost:8080/solr
+#solrURL = http://192.168.30.100:8983/solr
+solrURL = http://59.151.117.234:8983/solr
+
+#cassandra
+cassandraDomainHost = 192.168.1.100
+cassandraDomainPort = 9160
+
+
+########session domain#######
+data.domain.ip=192.168.1.100
+data.domain.port=59161
+
+pubsub.redis.ip=192.168.20.106
+
+#redis domain
+redis.domain.ip=192.168.20.106
+redis.domain.port=6380
+redis.debugmode=true
+
+#号段库
+phonenumber.file=$BASE_DIR$/../conf/13x.txt $BASE_DIR$/../conf/15x18x.txt
+
+#百库电话系统配置
+ivr_number=ivr1
+sms_number=sms1
+ivr_server=ivrs1
+baiku_server=baikus1
+update_server=updates1
+area_code=area1
+
+#复制消息的队列，服务器配置在memcached.xml中。
+memecached.Q.queue=shareq

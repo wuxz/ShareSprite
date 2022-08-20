@@ -1,0 +1,147 @@
+package com.zhuaiwa.dd.utils;
+
+import java.io.IOException;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+
+import me.prettyprint.hector.api.exceptions.HectorException;
+
+import org.apache.cassandra.config.ConfigurationException;
+import org.apache.cassandra.thrift.InvalidRequestException;
+import org.apache.cassandra.thrift.KsDef;
+import org.apache.cassandra.thrift.SchemaDisagreementException;
+import org.apache.thrift.TException;
+import org.apache.thrift.transport.TTransportException;
+
+import com.zhuaiwa.api.SSDataDomain.SSDataDomainSvc.BlockingInterface;
+import com.zhuaiwa.api.SSDataDomain.SSDataDomainSvc.Interface;
+import com.zhuaiwa.dd.SSDataDomainSvcAsync;
+import com.zhuaiwa.dd.SSDataDomainSvcSync;
+import com.zhuaiwa.dd.api.SSDataDomainSvcImpl_v_1_1;
+import com.zhuaiwa.dd.dao.AccountDao;
+import com.zhuaiwa.dd.dao.FollowerDao;
+import com.zhuaiwa.dd.dao.FollowingDao;
+import com.zhuaiwa.dd.dao.ProfileDao;
+import com.zhuaiwa.dd.hector.HectorFactory;
+import com.zhuaiwa.dd.service.impl.DataServiceImpl;
+import com.zhuaiwa.dd.tool.DDCreator;
+
+public class TestInitializer {
+    private static class Singleton {
+        private static final SSDataDomainSvcSync sync;
+        private static final SSDataDomainSvcAsync async;
+        private static EmbeddedCassandraServer embedded;
+        static {
+            embedded = new EmbeddedCassandraServer();
+            try {
+                embedded.setup();
+            } catch (TTransportException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            } catch (ConfigurationException e) {
+                e.printStackTrace();
+            }
+            
+            // repair executor
+            ThreadPoolExecutor repairService = new ThreadPoolExecutor(
+                    1,1,60,TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());
+            
+            // dataservice
+            DataServiceImpl dataService = new DataServiceImpl(HectorFactory.getKeyspace());
+            dataService.setRepairService(repairService);
+            
+            // dao
+            AccountDao accountDao = new AccountDao();
+            accountDao.setKeyspace(HectorFactory.getKeyspace());
+            ProfileDao profileDao = new ProfileDao();
+            profileDao.setKeyspace(HectorFactory.getKeyspace());
+            FollowingDao followingDao = new FollowingDao();
+            followingDao.setKeyspace(HectorFactory.getKeyspace());
+            FollowerDao followerDao = new FollowerDao();
+            followerDao.setKeyspace(HectorFactory.getKeyspace());
+            
+            SSDataDomainSvcImpl_v_1_1 impl = new SSDataDomainSvcImpl_v_1_1();
+            impl.setCassandra(HectorFactory.getKeyspace());
+            impl.setDataService(dataService);
+            impl.setRepairService(repairService);
+            impl.setAccountDao(accountDao);
+            impl.setProfileDao(profileDao);
+            impl.setFollowingDao(followingDao);
+            impl.setFollowerDao(followerDao);
+            
+            sync = new SSDataDomainSvcSync();
+            sync.setImpl(impl);
+            
+            async = new SSDataDomainSvcAsync();
+            async.setImpl(impl);
+        }
+    }
+    
+    public static BlockingInterface getSync() {
+        return Singleton.sync;
+    }
+
+    public static Interface getAsync() {
+        return Singleton.async;
+    }
+    
+    public static void initKeyspace() {
+
+        KsDef SSDataDomain = DDCreator.createDD();
+        SSDataDomain.getStrategy_options().put("replication_factor", "1");
+        SSDataDomain.addToCf_defs(DDCreator.createAccount());
+        SSDataDomain.addToCf_defs(DDCreator.createProfile());
+        SSDataDomain.addToCf_defs(DDCreator.createMessage());
+        SSDataDomain.addToCf_defs(DDCreator.createTorrent());
+        SSDataDomain.addToCf_defs(DDCreator.createEmailAccount());
+        SSDataDomain.addToCf_defs(DDCreator.createPhoneAccount());
+        SSDataDomain.addToCf_defs(DDCreator.createNameAccount());
+        SSDataDomain.addToCf_defs(DDCreator.createFollowing());
+        SSDataDomain.addToCf_defs(DDCreator.createFollower());
+        SSDataDomain.addToCf_defs(DDCreator.createTimeFollower());
+        SSDataDomain.addToCf_defs(DDCreator.createInviting());
+        SSDataDomain.addToCf_defs(DDCreator.createInviter());
+        SSDataDomain.addToCf_defs(DDCreator.createContact());
+        SSDataDomain.addToCf_defs(DDCreator.createGroup());
+        SSDataDomain.addToCf_defs(DDCreator.createMember());
+        SSDataDomain.addToCf_defs(DDCreator.createPubBox());
+        SSDataDomain.addToCf_defs(DDCreator.createInBox());
+        SSDataDomain.addToCf_defs(DDCreator.createOutBox());
+        SSDataDomain.addToCf_defs(DDCreator.createFavorite());
+        SSDataDomain.addToCf_defs(DDCreator.createComment());
+        SSDataDomain.addToCf_defs(DDCreator.createCounter());
+        try {
+            HectorFactory.getCluster().getConnectionManager().getActivePools().iterator().next().borrowClient().getCassandra().system_add_keyspace(SSDataDomain);
+        } catch (HectorException e) {
+            e.printStackTrace();
+        } catch (InvalidRequestException e) {
+            e.printStackTrace();
+        } catch (SchemaDisagreementException e) {
+            e.printStackTrace();
+        } catch (TException e) {
+            e.printStackTrace();
+        }
+    }
+    
+    public static void dropKeyspace() {
+        try {
+            HectorFactory.getCluster().getConnectionManager().getActivePools().iterator().next().borrowClient().getCassandra().system_drop_keyspace(HectorFactory.KEYSPACE_NAME);
+        } catch (HectorException e) {
+            e.printStackTrace();
+        } catch (InvalidRequestException e) {
+            e.printStackTrace();
+        } catch (SchemaDisagreementException e) {
+            e.printStackTrace();
+        } catch (TException e) {
+            e.printStackTrace();
+        }
+    }
+    
+    public static void shutdown() {
+        Singleton.embedded.teardown();
+    }
+}

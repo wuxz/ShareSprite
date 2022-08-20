@@ -1,0 +1,120 @@
+#!/bin/sh
+
+this="${BASH_SOURCE-$0}"
+if readlink -f "$this" > /dev/null 2>&1
+then
+  this=`readlink -f "$this"`
+fi
+basedir=`dirname "$this"`
+basedir=`cd "$basedir">/dev/null; pwd`
+
+. $basedir/env
+
+usage()
+{
+echo "Usage: `basename $0` [options]"
+echo "      --help                print usage"
+echo "  -h, --host=HOST           cassandra cluster host name or ip address"
+echo "  -p, --port=PORT           cassandra cluster thrift port"
+echo "      --add-datadomain-keyspace         add SSDataDomain keyspace"
+echo "      --add-account-column-family       add Account column family"
+echo "      --add-profile-column-family       add Profile column family"
+echo "      --add-message-column-family       add Message column family"
+echo "      --add-torrent-column-family       add Torrent column family"
+echo "      --add-email-account-column-family add EmailAccount column family"
+echo "      --add-phone-account-column-family add PhoneAccount column family"
+echo "      --add-name-account-column-family  add NameAccount column family"
+echo "      --add-following-column-family     add Following column family"
+echo "      --add-follower-column-family      add Follower column family"
+echo "      --add-time-follower-column-family add TimeFollower column family"
+echo "      --add-inviting-column-family      add Inviting column family"
+echo "      --add-inviter-column-family       add Inviter column family"
+echo "      --add-contact-column-family       add Contact column family"
+echo "      --add-group-column-family         add Group column family"
+echo "      --add-member-column-family        add Member column family"
+echo "      --add-pubbox-column-family        add PubBox column family"
+echo "      --add-inbox-column-family         add InBox column family"
+echo "      --add-outbox-column-family        add OutBox column family"
+echo "      --add-favorite-column-family      add Favorite column family"
+echo "      --add-comment-column-family       add Comment column family"
+echo "      --add-counter-column-family       add Counter column family"
+}
+
+args=`getopt --name=$(basename $0) --options=h:p: --longoptions=help,host:,port:,\
+add-datadomain-keyspace,\
+add-account-column-family,\
+add-profile-column-family,\
+add-message-column-family,\
+add-torrent-column-family,\
+add-email-account-column-family,\
+add-phone-account-column-family,\
+add-name-account-column-family,\
+add-following-column-family,\
+add-follower-column-family,\
+add-time-follower-column-family,\
+add-inviting-column-family,\
+add-inviter-column-family,\
+add-contact-column-family,\
+add-group-column-family,\
+add-member-column-family,\
+add-pubbox-column-family,\
+add-inbox-column-family,\
+add-outbox-column-family,\
+add-favorite-column-family,\
+add-comment-column-family,\
+add-counter-column-family -- "$@"`
+
+#echo "args: $args"
+if [ $? -ne 0 ]; then
+  usage
+  exit $?
+fi
+
+eval set -- "$args"
+
+CASSANDRA_ADDRESS=$(grep -E "^[^#]*dd.cassandra.addresses=" $DD_CONF/dd.properties|sed -e 's/.*=\(.*\)/\1/')
+CASSANDRA_PORT=$(grep -E "^[^#]*dd.cassandra.port=" $DD_CONF/dd.properties|sed -e 's/.*=\(.*\)/\1/')
+[ -z "$CASSANDRA_ADDRESS" ] && CASSANDRA_ADDRESS=127.0.0.1
+[ -z "$CASSANDRA_PORT" ] && CASSANDRA_PORT=9160
+
+host=
+port=
+
+OPTS=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -h|--host)
+      host=$2
+      shift 2
+      ;;
+    -p|--port)
+      port=$2
+      shift 2
+      ;;
+    --help)
+      usage
+      exit
+      ;;
+    ""|--)
+      shift
+      ;;
+    *)
+      OPTS="$OPTS $1"
+      shift
+      ;;
+  esac
+done
+
+if [ -z "$host" ]; then
+  host=$(echo "$CASSANDRA_ADDRESS" | sed -e 's/;/ /g' | awk '{print $1}')
+fi
+if [ -z "$port" ]; then
+  port=$CASSANDRA_PORT
+fi
+
+[ -n "$host" ] && OPTS="$OPTS --host=$host"
+[ -n "$port" ] && OPTS="$OPTS --port=$port"
+
+$JAVA -cp $CLASSPATH \
+com.zhuaiwa.dd.tool.DDCreator \
+$OPTS

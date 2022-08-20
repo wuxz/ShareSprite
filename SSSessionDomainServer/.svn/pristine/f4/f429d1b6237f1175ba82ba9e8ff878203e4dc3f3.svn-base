@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="SSSessionDomainServer" default="help">
+	<!-- global setting -->
+    <property name="app.name" value="sharespriteSessionDomain"/>
+    <property name="app.version" value="1.0.0"/>
+    	
+	<property name="project.name" value="sharespriteSessionDomain" />
+	<property name="project.version" value="1.0.0" />
+	<property name="final.name" value="${project.name}-${project.version}" />
+
+	<property file="build.properties"/>
+	
+	<!-- dir settings -->
+	<property name="basedir" value="." />
+	<property name="src.java" value="${basedir}/main" />
+	<property name="src.search" value="${basedir}/search" />
+	<property name="src.gen-java" value="${basedir}/gen-java" />
+	<property name="src.test" value="${basedir}/src/test" />
+	<property name="src.conf" value="${basedir}/conf" />
+	<property name="src.search" value="${basedir}/search" />
+	<property name="lib.dir" value="${basedir}/lib" />
+	
+	<property name="build.dir" value="${basedir}/build" />
+	<property name="build.classes" value="${build.dir}/classes" />
+	<property name="dist.home" value="${basedir}/dist"/>
+	<property name="java.classes" value="${build.dir}/classes" />
+	
+	<!-- build settings -->
+	<property name="build.encoding" value="UTF-8" />
+	<property name="debug" value="on" />
+	<property name="optimize" value="on" />
+	<property name="deprecation" value="on" />
+	<property name="fork" value="true" />
+	<property name="source" value="1.6" />
+	
+	<property name="jar.app" value="${final.name}.jar" />
+	
+	<property name="dist.dir" value="${build.dir}/dist" />
+
+	<path id="all-libs">
+		<fileset dir="${lib.dir}">
+			<include name="**/*.jar" />
+		</fileset>
+	</path>
+
+	<path id="build-classpath">
+		<path refid="all-libs" />
+	</path>
+	
+    <!-- 有关svn的变量 -->
+    <target name="init.svn.variables">
+      <!-- 检查svn jar包是否存在 -->
+      <available file="svntask.jar" property="svntask.jar.available">
+        <filepath>
+          <pathelement location="${ant.home}/lib"/>
+          <pathelement location="${lib.home}"/>
+        </filepath>
+      </available>
+      <available file="svnkit.jar" property="svnkit.jar.available">
+        <filepath>
+          <pathelement location="${ant.home}/lib"/>
+          <pathelement location="${lib.home}"/>
+        </filepath>
+      </available>
+    </target>
+    
+    <!-- 如果svn不存在，显示错误消息 -->
+    <target name="svntask.jar.available" depends="init.svn.variables" unless="svntask.jar.available" >
+      <fail message="expecting svntask.jar"/>
+    </target>
+    <target name="svnkit.jar.available" depends="init.svn.variables" unless="svnkit.jar.available" >
+      <fail message="expecting svnkit.jar"/>
+    </target>
+  
+    <!-- 如果svn存在，定义任务 -->
+    <target name="init.svn.taskdefs" depends="svntask.jar.available, svnkit.jar.available" unless="taskdefs.svn.init">
+      <taskdef resource="com/googlecode/svntask/svntask.xml">
+      <!-- 此处需要下载svntask：http://code.google.com/p/svntask  -->
+      <!-- 然后将下面两个jar解压到ANT_HOME/lib目录下或直接放在lib -->
+      <!-- 目录下并取消下面的注释                                 -->
+        <classpath>
+          <pathelement location="${ant.home}/lib/svntask.jar"/>
+          <pathelement location="${ant.home}/lib/svnkit.jar"/>
+          <pathelement location="${lib.home}/svntask.jar"/>
+          <pathelement location="${lib.home}/svnkit.jar"/>
+        </classpath>
+      </taskdef>
+      <property name="taskdefs.svn.init" value="true"/>
+    </target>	
+
+	<target name="help">
+		<echo message="" />
+		<echo message="${project.name} application build file" />
+		<echo message="------------------------------------------------------" />
+		<echo message="" />
+		<echo message="Available targets are:" />
+		<echo message="" />
+		<echo message="init		 Make init dirs" />
+		<echo message="clean     Clean output dirs" />
+		<echo message="compile   Compile main Java sources" />
+		<echo message="jar       Create jar file" />
+	</target>
+
+	<!-- ====================================================== -->
+	<!-- Stuff needed by all targets                            -->
+	<!-- ====================================================== -->
+	<target name="init" depends="init.svn.taskdefs" description="Make init dirs">
+		<mkdir dir="${build.dir}" />
+		<mkdir dir="${build.classes}" />
+		<mkdir dir="${build.classes}/app" />
+		<mkdir dir="${dist.dir}" />
+        <mkdir dir="${dist.home}" />
+	</target>
+
+	<!-- ====================================================== -->
+	<!-- Clean all build file and deployed web app              -->
+	<!-- ====================================================== -->
+	<target name="clean" description="Clean output dirs">
+		<delete dir="${build.dir}" />
+	</target>
+
+	<!-- ====================================================== -->
+	<!-- Comile all classes                                     -->
+	<!-- ====================================================== -->
+	<target name="compile" depends="init" description="Compile main Java sources">
+		<javac destdir="${build.classes}"
+			encoding="${build.encoding}"
+			includes="**/*.java"
+			debug="${debug}"
+			fork="${fork}"
+			optimize="${optimize}"
+			source="${source}"
+			target="1.6"
+			deprecation="${deprecation}">
+			<compilerarg value="-Xlint:unchecked" />
+			<src path="${src.java}" />
+			<src path="${src.search}" />
+			<src path="${src.conf}" />
+			<src path="${src.gen-java}" />
+			<classpath refid="build-classpath" />
+		</javac>
+	</target>
+
+	<target name="jar" depends="compile" description="Create jar file">
+		<jar destfile="${dist.dir}/${jar.app}">
+			<fileset dir="${build.classes}">
+				<include name="**/*.class" />
+			</fileset>
+			<!--
+			<fileset dir="${src.conf}">
+				<include name="**" />
+			</fileset>
+			-->
+		</jar>
+	</target>
+	
+	<target name="package" depends="init" description="Package">
+		<jar destfile="${dist.dir}/${jar.app}">
+			<fileset dir="${java.classes}">
+				<include name="**/*.class" />
+			</fileset>
+		</jar>
+	</target>
+	
+	<target name="upload2t1" depends="package">
+		<exec executable="pscp">
+			<arg line="-l root"/>
+			<arg line="-pw jklfds56"/>
+			<arg line="${dist.dir}/${jar.app} 59.151.117.236:/root/sharesprite"/>
+		</exec>
+		<exec executable="pscp">
+			<arg line="-r"/>
+			<arg line="-l root"/>
+			<arg line="-pw jklfds56"/>
+			<arg line="${basedir}/template/*.ftl ${basedir}/template/*.html ${basedir}/template/*.jpg 59.151.117.236:/root/sharesprite/template"/>
+		</exec>		
+	</target>
+		
+	<target name="jar_search" depends="jar" description="Create jar file">
+			<jar destfile="${dist.dir}/zhuaiwa_search.jar">
+				<fileset dir="${java.classes}">
+					<include name="com/zhuaiwa/session/search/**/*.class" />
+				</fileset>
+<!--				
+				<fileset dir="${src.search}">
+					<include name="log4j.xml" />
+				</fileset>
+
+				<zipfileset src="${lib.dir}/activemq-core-5.2.0.jar" excludes="META-INF/*" />
+				<zipfileset src="${lib.dir}/apache-solr-solrj-1.4.1.jar" excludes="META-INF/*" />
+				<zipfileset src="${lib.dir}/commons-logging-1.1.1.jar" excludes="META-INF/*" />
+				<zipfileset src="${lib.dir}/geronimo-jms_1.1_spec-1.1.1.jar" excludes="META-INF/*" />
+				<zipfileset src="${lib.dir}/geronimo-j2ee-management_1.0_spec-1.0.jar" excludes="META-INF/*" />
+				<zipfileset src="${lib.dir}/commons-httpclient-3.1.jar" excludes="META-INF/*" />
+				<zipfileset src="${lib.dir}/json_simple-1.1.jar" excludes="META-INF/*" />
+				
+				<zipfileset src="${lib.dir}/datadomain-1.1.0-migration-final.jar" excludes="META-INF/*" />
+				<zipfileset src="${lib.dir}/libthrift-0.6.jar" excludes="META-INF/*" />
+				<zipfileset src="${lib.dir}/apache-cassandra-thrift-1.0.6.jar" excludes="META-INF/*" />
+				<zipfileset src="${lib.dir}/sharespriteCommon-1.0.4-r12010.jar" excludes="META-INF/*" />
+				<zipfileset src="${lib.dir}/log4j-1.2.16.jar" excludes="META-INF/*" />
+				<zipfileset src="${lib.dir}/slf4j-api-1.6.1.jar" excludes="META-INF/*" />
+				<zipfileset src="${lib.dir}/slf4j-log4j12-1.6.1.jar" excludes="META-INF/*" />
+				<zipfileset src="${lib.dir}/protobuf-java-2.3.0.jar" excludes="META-INF/*" />
+				<zipfileset src="${lib.dir}/commons-codec-1.5.jar" excludes="META-INF/*" />
+				<zipfileset src="${lib.dir}/commons-lang-2.4.jar" excludes="META-INF/*" />
+				
+				<manifest>
+					<attribute name="Main-class" value="com.zhuaiwa.session.search.MessageReceiver" />
+				</manifest>
+-->				
+			</jar>
+		</target>	
+	
+	<target name="upload2is0" depends="jar_search">
+		<exec executable="pscp">
+			<arg line="-l root"/>
+			<arg line="-pw b2j5q7n6"/>
+			<arg line="${dist.dir}/zhuaiwa_search.jar 59.151.117.241:/root"/>
+		</exec>
+	</target>
+
+<!-- 	
+	<target name="upload" depends="package">
+		<exec executable="pscp">
+			<arg line="-l root"/>
+			<arg line="-pw jklfds56"/>
+			<arg line="${dist.dir}/${jar.app} p0:/data/sharesprite2"/>
+		</exec>
+		<exec command="plink -l root -pw jklfds56 p1 'scp p0:/data/sharesprite2/${jar.app} p1:/data/sharesprite2'"/>
+		<exec command="plink -l root -pw jklfds56 p1 'scp p0:/data/sharesprite2/${jar.app} p2:/data/sharesprite2'"/>
+	</target>
+	
+	<target name="shutdown">
+		<exec command="plink -v -l root -pw jklfds56 p0 /data/sharesprite/bin/stop-server"/>
+		<exec command="plink -v -l root -pw jklfds56 p1 /data/sharesprite/bin/stop-server"/>
+		<exec command="plink -v -l root -pw jklfds56 p2 /data/sharesprite/bin/stop-server"/>
+	</target>
+	
+	<target name="bootstrap">
+		<exec command="plink -v -N -l root -pw jklfds56 p0 /data/sharesprite/bin/start-server"/>
+		<exec command="plink -v -N -l root -pw jklfds56 p1 /data/sharesprite/bin/start-server"/>
+		<exec command="plink -v -N -l root -pw jklfds56 p2 /data/sharesprite/bin/start-server"/>
+	</target>
+	-->
+	
+    <target name="dist" depends="compile" description="Create binary distribution">
+      <delete dir="${dist.home}" includes="${app.name}-${app.version}-r*.jar"></delete>
+      
+      <!-- Get revision number -->
+      <svn><info path="${basedir}" committedRevisionProperty="revision" /></svn>
+  
+      <!-- Create application JAR file -->
+      <jar destfile="${dist.home}/${app.name}-${app.version}-r${revision}.jar">
+        <fileset dir="${build.classes}">
+          <include name="**/*.class" />
+        </fileset>
+        <manifest>
+          <attribute name="Revision" value="${revision}"/>
+        </manifest>
+      </jar>
+    </target>	
+</project>

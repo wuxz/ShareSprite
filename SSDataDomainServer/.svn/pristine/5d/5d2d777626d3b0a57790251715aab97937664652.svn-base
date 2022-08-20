@@ -1,0 +1,14 @@
+#!/bin/sh
+
+this="${BASH_SOURCE-$0}"
+if readlink -f "$this" > /dev/null 2>&1
+then
+  this=`readlink -f "$this"`
+fi
+basedir=`dirname "$this"`
+basedir=`cd "$basedir">/dev/null; pwd`
+
+. $basedir/env
+
+logpath=$(grep "log4j.appender.R.File=" "$DD_CONF/log4j.properties"|sed -e 's/.*=\(.*\)/\1/')
+tail $@ $logpath

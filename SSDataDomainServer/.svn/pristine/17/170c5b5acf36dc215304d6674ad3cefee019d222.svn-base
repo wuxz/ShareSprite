@@ -1,0 +1,302 @@
+package com.zhuaiwa.dd.api;
+
+import static org.junit.Assert.assertTrue;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.ThreadPoolExecutor;
+
+import org.junit.After;
+import org.junit.AfterClass;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Test;
+import org.omg.CORBA.BooleanHolder;
+
+import com.zhuaiwa.api.Common.SSResultCode;
+import com.zhuaiwa.api.Rpc.FollowRequest;
+import com.zhuaiwa.api.Rpc.FollowResponse;
+import com.zhuaiwa.api.Rpc.GetFollowerRequest;
+import com.zhuaiwa.api.Rpc.GetFollowerResponse;
+import com.zhuaiwa.api.Rpc.GetFollowingRequest;
+import com.zhuaiwa.api.Rpc.GetFollowingResponse;
+import com.zhuaiwa.api.Rpc.GetProfileRequest;
+import com.zhuaiwa.api.Rpc.GetProfileResponse;
+import com.zhuaiwa.api.Rpc.IsFollowerRequest;
+import com.zhuaiwa.api.Rpc.IsFollowerResponse;
+import com.zhuaiwa.api.Rpc.UnfollowRequest;
+import com.zhuaiwa.api.Rpc.UnfollowResponse;
+import com.zhuaiwa.api.SSDataDomain.SSDataDomainSvc.BlockingInterface;
+import com.zhuaiwa.api.netty.NettyRpcController;
+import com.zhuaiwa.dd.SSDataDomainSvcSync;
+import com.zhuaiwa.dd.dao.FollowerDao;
+import com.zhuaiwa.dd.domain.FollowInfo;
+import com.zhuaiwa.dd.hector.HectorFactory;
+import com.zhuaiwa.dd.utils.TestInitializer;
+
+public class FollowTest {
+    private static BlockingInterface api;
+
+    @BeforeClass
+    public static void init() throws Exception {
+        api = TestInitializer.getSync();
+    }
+    
+    @AfterClass
+    public static void shutdown() throws Exception {
+//        HectorFactory.shutdown();
+    }
+    
+    @Before
+    public void setUp() throws Exception {
+        TestInitializer.initKeyspace();
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        TestInitializer.dropKeyspace();
+    }
+    
+    private static <T> void assertEquals(T[] left, List<T> right) {
+        assertTrue(Arrays.asList(left).containsAll(right));
+        assertTrue(right.containsAll(Arrays.asList(left)));
+    }
+
+    private void assertFollowingEqual(String userid, String[] expected) throws Exception {
+        NettyRpcController controller = new NettyRpcController();
+        GetFollowingRequest request = GetFollowingRequest.newBuilder()
+            .setUserid(userid)
+            .build();
+        GetFollowingResponse response = api.getFollowing(controller, request);
+        Assert.assertEquals(SSResultCode.RC_OK.getNumber(), controller.getCode());
+        assertEquals(expected, response.getFollowingUseridListList());
+    }
+    private void assertFollowingCountEqual(String userid, int expected) throws Exception {
+        NettyRpcController controller = new NettyRpcController();
+        GetProfileRequest request = GetProfileRequest.newBuilder()
+            .addUseridList(userid)
+            .build();
+        GetProfileResponse response = api.getProfile(controller, request);
+        Assert.assertEquals(SSResultCode.RC_OK.getNumber(), controller.getCode());
+        Assert.assertEquals(expected, response.getProfileList(0).getFollowingCount());
+    }
+    private void assertFollowerEqual(String userid, String[] expected) throws Exception {
+        NettyRpcController controller = new NettyRpcController();
+        GetFollowerRequest request = GetFollowerRequest.newBuilder()
+            .setUserid(userid)
+            .build();
+        GetFollowerResponse response = api.getFollower(controller, request);
+        Assert.assertEquals(SSResultCode.RC_OK.getNumber(), controller.getCode());
+        assertEquals(expected, response.getFollowerUseridListList());
+    }
+    private void assertFollowerCountEqual(String userid, int expected) throws Exception {
+        NettyRpcController controller = new NettyRpcController();
+        GetProfileRequest request = GetProfileRequest.newBuilder()
+            .addUseridList(userid)
+            .build();
+        GetProfileResponse response = api.getProfile(controller, request);
+        Assert.assertEquals(SSResultCode.RC_OK.getNumber(), controller.getCode());
+        Assert.assertEquals(expected, response.getProfileList(0).getFollowerCount());
+    }
+    
+    private void waitBackgroundTaskFinished() {
+        do {
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+            }
+        }
+        while(((ThreadPoolExecutor)((SSDataDomainSvcImpl)((SSDataDomainSvcSync)api).getImpl()).getRepairService()).getCompletedTaskCount() != 
+                ((ThreadPoolExecutor)((SSDataDomainSvcImpl)((SSDataDomainSvcSync)api).getImpl()).getRepairService()).getTaskCount());
+    }
+
+    @Test
+    public void testFollow() throws Exception {
+        String userid = "test";
+        
+        for (String s : Arrays.asList("test_a", "test_b", "test_c", "test_d")) {
+        NettyRpcController controller = new NettyRpcController();
+        FollowRequest request = FollowRequest.newBuilder()
+            .setFollowerUserid(userid)
+            .addFollowingUseridList(s)
+            .build();
+        FollowResponse response = api.follow(controller, request);
+        Assert.assertEquals(SSResultCode.RC_OK.getNumber(), controller.getCode());
+        }
+        
+        waitBackgroundTaskFinished();
+        
+        assertFollowingEqual(userid, new String[] {"test_a", "test_b", "test_c", "test_d"});
+        assertFollowerEqual("test_a", new String[] {"test"});
+        assertFollowerEqual("test_b", new String[] {"test"});
+        assertFollowerEqual("test_c", new String[] {"test"});
+        assertFollowerEqual("test_d", new String[] {"test"});
+        
+        assertFollowingCountEqual(userid, 4);
+        assertFollowerCountEqual("test_a", 1);
+        assertFollowerCountEqual("test_b", 1);
+        assertFollowerCountEqual("test_c", 1);
+        assertFollowerCountEqual("test_d", 1);
+    }
+	
+	@Test
+	public void testUnfollow() throws Exception {
+	    testFollow();
+	    
+		String userid = "test";
+		for (String s : Arrays.asList("test_a", "test_b", "test_c")) {
+		NettyRpcController controller = new NettyRpcController();
+		UnfollowRequest request = UnfollowRequest.newBuilder()
+			.setFollowerUserid(userid)
+			.addFollowingUseridList(s)
+			.build();
+		UnfollowResponse response = api.unfollow(controller, request);
+		Assert.assertEquals(SSResultCode.RC_OK.getNumber(), controller.getCode());
+		}
+
+		waitBackgroundTaskFinished();
+
+        assertFollowingEqual("test", new String[] {"test_d"});
+        assertFollowerEqual("test_a", new String[] {});
+        assertFollowerEqual("test_b", new String[] {});
+        assertFollowerEqual("test_c", new String[] {});
+        assertFollowerEqual("test_d", new String[] {"test"});
+        
+        assertFollowingCountEqual(userid, 1);
+        assertFollowerCountEqual("test_a", 0);
+        assertFollowerCountEqual("test_b", 0);
+        assertFollowerCountEqual("test_c", 0);
+        assertFollowerCountEqual("test_d", 1);
+	}
+
+	@Test
+	public void testIsFollower() throws Exception {
+	    testFollow();
+	    
+        NettyRpcController controller = new NettyRpcController();
+        IsFollowerRequest request = IsFollowerRequest.newBuilder()
+            .setUserid("test_a")
+            .addUseridList("test")
+            .addUseridList("test_x")
+            .addUseridList("test_y")
+            .addUseridList("test_z")
+            .build();
+        IsFollowerResponse response = api.isFollower(controller, request);
+        Assert.assertEquals(SSResultCode.RC_OK.getNumber(), controller.getCode());
+        Assert.assertArrayEquals(new String[] {"test"}, response.getFollowerUseridListList().toArray());
+	}
+	
+	/*
+	 * 测试关注表的排序
+	 */
+	@Test
+    public void testFollowing() throws Exception {
+        String userid = "test";
+        
+        for (String s : Arrays.asList("test_c", "test_a", "test_d", "test_b")) {
+            NettyRpcController controller = new NettyRpcController();
+            FollowRequest request = FollowRequest.newBuilder()
+                .setFollowerUserid(userid)
+                .addFollowingUseridList(s)
+                .build();
+            FollowResponse response = api.follow(controller, request);
+            Assert.assertEquals(SSResultCode.RC_OK.getNumber(), controller.getCode());
+
+            waitBackgroundTaskFinished();
+        }
+        
+        {
+            NettyRpcController controller = new NettyRpcController();
+            GetFollowingRequest request = GetFollowingRequest.newBuilder()
+                .setUserid(userid)
+                .build();
+            GetFollowingResponse response = api.getFollowing(controller, request);
+            Assert.assertEquals(SSResultCode.RC_OK.getNumber(), controller.getCode());
+            Assert.assertArrayEquals(new String[] {"test_b", "test_d", "test_a", "test_c"}, response.getFollowingUseridListList().toArray());
+        }
+    }
+	
+    /*
+     * 测试粉丝表的排序
+     */
+    @Test
+    public void testFollower() throws Exception {
+        String userid = "test";
+        
+        for (String s : Arrays.asList("test_1", "test_2", "test_3", "test_4")) {
+            NettyRpcController controller = new NettyRpcController();
+            FollowRequest request = FollowRequest.newBuilder()
+                .setFollowerUserid(s)
+                .addFollowingUseridList(userid)
+                .build();
+            FollowResponse response = api.follow(controller, request);
+            Assert.assertEquals(SSResultCode.RC_OK.getNumber(), controller.getCode());
+
+            waitBackgroundTaskFinished();
+        }
+        
+        {
+            NettyRpcController controller = new NettyRpcController();
+            GetFollowerRequest request = GetFollowerRequest.newBuilder()
+                .setUserid(userid)
+                .build();
+            GetFollowerResponse response = api.getFollower(controller, request);
+            Assert.assertEquals(SSResultCode.RC_OK.getNumber(), controller.getCode());
+            Assert.assertArrayEquals(new String[] {"test_1", "test_2", "test_3", "test_4"}, response.getFollowerUseridListList().toArray());
+            Assert.assertEquals(true, response.getEol());
+        }
+        
+        {
+            NettyRpcController controller = new NettyRpcController();
+            GetFollowerRequest request = GetFollowerRequest.newBuilder()
+                .setUserid(userid)
+                .setCursorId("test_1")
+                .setCount(2)
+                .build();
+            GetFollowerResponse response = api.getFollower(controller, request);
+            Assert.assertEquals(SSResultCode.RC_OK.getNumber(), controller.getCode());
+            Assert.assertArrayEquals(new String[] {"test_2", "test_3"}, response.getFollowerUseridListList().toArray());
+            Assert.assertEquals(false, response.getEol());
+        }
+        
+        {
+            NettyRpcController controller = new NettyRpcController();
+            GetFollowerRequest request = GetFollowerRequest.newBuilder()
+                .setUserid(userid)
+                .setCursorId("test_4")
+                .setCount(2)
+                .build();
+            GetFollowerResponse response = api.getFollower(controller, request);
+            Assert.assertEquals(SSResultCode.RC_OK.getNumber(), controller.getCode());
+            Assert.assertArrayEquals(new String[] {}, response.getFollowerUseridListList().toArray());
+            Assert.assertEquals(true, response.getEol());
+        }
+        
+        {
+            NettyRpcController controller = new NettyRpcController();
+            GetFollowerRequest request = GetFollowerRequest.newBuilder()
+                .setUserid(userid)
+                .setCursorId("test_1")
+                .setCount(-2)
+                .build();
+            GetFollowerResponse response = api.getFollower(controller, request);
+            Assert.assertEquals(SSResultCode.RC_OK.getNumber(), controller.getCode());
+            Assert.assertArrayEquals(new String[] {}, response.getFollowerUseridListList().toArray());
+            Assert.assertEquals(true, response.getEol());
+        }
+        
+        {
+            NettyRpcController controller = new NettyRpcController();
+            GetFollowerRequest request = GetFollowerRequest.newBuilder()
+                .setUserid(userid)
+                .setCursorId("test_4")
+                .setCount(-2)
+                .build();
+            GetFollowerResponse response = api.getFollower(controller, request);
+            Assert.assertEquals(SSResultCode.RC_OK.getNumber(), controller.getCode());
+            Assert.assertArrayEquals(new String[] {"test_3", "test_2"}, response.getFollowerUseridListList().toArray());
+            Assert.assertEquals(false, response.getEol());
+        }
+    }
+}

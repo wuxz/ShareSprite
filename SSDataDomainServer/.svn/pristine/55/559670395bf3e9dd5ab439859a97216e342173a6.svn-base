@@ -1,0 +1,18 @@
+<<<<<<< .working
+<<<<<<< .working
+#Tue Dec 20 14:26:39 CST 2011
+=======
+#Tue Nov 29 14:30:57 CST 2011
+=======
+#Tue Dec 20 14:32:22 CST 2011
+>>>>>>> .merge-right.r11831
+>>>>>>> .merge-right.r11182
+eclipse.preferences.version=1
+<<<<<<< .working
+encoding//conf/dd.properties=UTF-8
+encoding//conf/log4j.properties=UTF-8
+=======
+encoding//conf/dd.properties=UTF-8
+encoding//conf/log4j.properties=UTF-8
+encoding/<project>=UTF-8
+>>>>>>> .merge-right.r11831

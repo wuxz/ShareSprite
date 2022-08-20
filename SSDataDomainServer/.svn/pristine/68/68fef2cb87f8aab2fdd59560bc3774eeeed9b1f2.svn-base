@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry excluding="org/apache/cassandra/thrift/client/" kind="src" path="cassandra"/>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="src" path="gen-java"/>
+	<classpathentry kind="src" path="conf"/>
+	<classpathentry kind="src" path="test/java"/>
+	<classpathentry kind="src" path="test/resources"/>
+	<classpathentry kind="lib" path="lib/apache-cassandra-thrift-1.0.6.jar" sourcepath="C:/Users/Administrator/.m2/repository/org/apache/cassandra/cassandra-thrift/1.0.6/cassandra-thrift-1.0.6-sources.jar"/>
+	<classpathentry kind="lib" path="lib/commons-cli-1.1.jar"/>
+	<classpathentry kind="lib" path="lib/commons-lang-2.4.jar"/>
+	<classpathentry kind="lib" path="lib/json_simple-1.1.jar"/>
+	<classpathentry kind="lib" path="lib/libthrift-0.6.jar"/>
+	<classpathentry kind="lib" path="lib/log4j-1.2.16.jar"/>
+	<classpathentry kind="lib" path="lib/netty-3.2.5.Final.jar"/>
+	<classpathentry kind="lib" path="lib/protobuf-java-2.3.0.jar"/>
+	<classpathentry kind="lib" path="lib/sharespriteCommon-1.0.4-r12010.jar" sourcepath="/sharespriteCommon"/>
+	<classpathentry kind="lib" path="lib/slf4j-api-1.6.1.jar"/>
+	<classpathentry kind="lib" path="lib/slf4j-log4j12-1.6.1.jar"/>
+	<classpathentry kind="lib" path="lib/zookeeper-3.2.2.jar"/>
+	<classpathentry kind="lib" path="lib/hector-core-1.0-2-SNAPSHOT.jar" sourcepath="C:/Users/Administrator/.m2/repository/me/prettyprint/hector-core/1.0-2-SNAPSHOT/hector-core-1.0-2-SNAPSHOT-sources.jar"/>
+	<classpathentry kind="lib" path="lib/guava-r09.jar"/>
+	<classpathentry kind="lib" path="test/lib/avro-1.4.0-fixes.jar"/>
+	<classpathentry kind="lib" path="test/lib/avro-1.4.0-sources-fixes.jar"/>
+	<classpathentry kind="lib" path="test/lib/commons-codec-1.2.jar"/>
+	<classpathentry kind="lib" path="test/lib/compress-lzf-0.8.4.jar"/>
+	<classpathentry kind="lib" path="test/lib/concurrentlinkedhashmap-lru-1.2.jar"/>
+	<classpathentry kind="lib" path="test/lib/high-scale-lib-1.1.2.jar"/>
+	<classpathentry kind="lib" path="test/lib/jackson-core-asl-1.4.0.jar"/>
+	<classpathentry kind="lib" path="test/lib/jackson-mapper-asl-1.4.0.jar"/>
+	<classpathentry kind="lib" path="test/lib/jamm-0.2.5.jar"/>
+	<classpathentry kind="lib" path="test/lib/jline-0.9.94.jar"/>
+	<classpathentry kind="lib" path="test/lib/servlet-api-2.5-20081211.jar"/>
+	<classpathentry kind="lib" path="test/lib/snakeyaml-1.6.jar"/>
+	<classpathentry kind="lib" path="test/lib/snappy-java-1.0.4.1.jar"/>
+	<classpathentry kind="lib" path="test/lib/antlr-3.2.jar"/>
+	<classpathentry kind="lib" path="test/lib/apache-cassandra-1.0.6.jar" sourcepath="/cassandra-1.0.6"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.junit.JUNIT_CONTAINER/4"/>
+	<classpathentry kind="output" path="classes"/>
+</classpath>

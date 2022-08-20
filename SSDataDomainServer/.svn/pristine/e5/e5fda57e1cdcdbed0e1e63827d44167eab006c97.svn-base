@@ -1,0 +1,10 @@
+dd.server.listen.address=0.0.0.0
+dd.server.listen.port=9161
+
+dd.server.jmx.port=8081
+
+dd.server.jolokia.port=8778
+
+dd.cassandra.connections=16
+dd.cassandra.addresses=127.0.0.1
+dd.cassandra.port=9160

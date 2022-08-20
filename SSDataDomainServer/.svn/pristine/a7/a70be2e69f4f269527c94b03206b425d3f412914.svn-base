@@ -1,0 +1,1411 @@
+package com.zhuaiwa.dd.service.impl;
+
+import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+
+import me.prettyprint.hector.api.Keyspace;
+
+import org.apache.cassandra.thrift.ConsistencyLevel;
+import org.apache.cassandra.utils.GuidGenerator;
+import org.apache.commons.lang.StringUtils;
+import org.omg.CORBA.BooleanHolder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.protobuf.ByteString;
+import com.zhuaiwa.api.Common.SSAccount;
+import com.zhuaiwa.api.Common.SSBOX;
+import com.zhuaiwa.api.Common.SSContact;
+import com.zhuaiwa.api.Common.SSGender;
+import com.zhuaiwa.api.Common.SSGroup;
+import com.zhuaiwa.api.Common.SSId;
+import com.zhuaiwa.api.Common.SSMessage;
+import com.zhuaiwa.api.Common.SSPerson;
+import com.zhuaiwa.api.Common.SSProfile;
+import com.zhuaiwa.api.Common.SSShareType;
+import com.zhuaiwa.api.util.ApiExtensionHelper;
+import com.zhuaiwa.api.util.SSIdUtils;
+import com.zhuaiwa.dd.cmd.Command;
+import com.zhuaiwa.dd.cmd.CreateCommand;
+import com.zhuaiwa.dd.cmd.ReadCommand;
+import com.zhuaiwa.dd.domain.Account;
+import com.zhuaiwa.dd.domain.Comment;
+import com.zhuaiwa.dd.domain.Contact;
+import com.zhuaiwa.dd.domain.Contact.ContactInfo;
+import com.zhuaiwa.dd.domain.EmailAccount;
+import com.zhuaiwa.dd.domain.Favorite;
+import com.zhuaiwa.dd.domain.FollowInfo;
+import com.zhuaiwa.dd.domain.Follower;
+import com.zhuaiwa.dd.domain.Following;
+import com.zhuaiwa.dd.domain.Group.GroupInfo;
+import com.zhuaiwa.dd.domain.InBox;
+import com.zhuaiwa.dd.domain.InviteInfo;
+import com.zhuaiwa.dd.domain.Inviter;
+import com.zhuaiwa.dd.domain.Inviting;
+import com.zhuaiwa.dd.domain.Message;
+import com.zhuaiwa.dd.domain.MessageInfo;
+import com.zhuaiwa.dd.domain.OutBox;
+import com.zhuaiwa.dd.domain.PhoneAccount;
+import com.zhuaiwa.dd.domain.Profile;
+import com.zhuaiwa.dd.domain.PubBox;
+import com.zhuaiwa.dd.exception.DALException;
+import com.zhuaiwa.dd.service.DataService;
+import com.zhuaiwa.dd.util.MessageUtils;
+import com.zhuaiwa.util.JsonFormat;
+import com.zhuaiwa.util.JsonFormat.ParseException;
+
+public class DataServiceImpl implements DataService
+{
+	private static Logger logger = LoggerFactory
+			.getLogger(DataServiceImpl.class);
+
+	public static void build(SSAccount.Builder builder, Account account)
+	{
+		if (StringUtils.isNotEmpty(account.getUserid()))
+		{
+			builder.setUserid(account.getUserid());
+		}
+		if (StringUtils.isNotEmpty(account.getEmail()))
+		{
+			builder.addAliasIdList(SSIdUtils.fromEmail(account.getEmail()));
+		}
+		if (StringUtils.isNotEmpty(account.getPhoneNumber()))
+		{
+			builder.addAliasIdList(SSIdUtils.fromPhone(account.getPhoneNumber()));
+		}
+		if (StringUtils.isNotEmpty(account.getPassword()))
+		{
+			builder.setPassword(account.getPassword());
+		}
+		if (account.getRegisterTime() != null)
+		{
+			builder.setRegisterTime(account.getRegisterTime());
+		}
+		if (account.getIsActivated() != null)
+		{
+			builder.setIsActive(account.getIsActivated());
+		}
+		if (account.getRole() != null)
+		{
+			builder.setRole(account.getRole());
+		}
+		if (StringUtils.isNotEmpty(account.getSecurityCode()))
+		{
+			builder.setSecurityCode(account.getSecurityCode());
+		}
+		if (account.getSecurityCodeTime() != null)
+		{
+			builder.setSecurityCodeTime(account.getSecurityCodeTime());
+		}
+		if (account.getFirstLogin() != null)
+		{
+			builder.setIsFirstLogin(account.getFirstLogin());
+		}
+		if (account.getIsEmailHidden() != null)
+		{
+			builder.setIsEmailHidden(account.getIsEmailHidden());
+		}
+		if (account.getIsPhoneHidden() != null)
+		{
+			builder.setIsPhoneHidden(account.getIsPhoneHidden());
+		}
+		if (account.getIsEducationHidden() != null)
+		{
+			builder.setIsEducationHidden(account.getIsEducationHidden());
+		}
+		if (account.getIsWorkHidden() != null)
+		{
+			builder.setIsWorkHidden(account.getIsWorkHidden());
+		}
+		if (account.getIsNicknameHidden() != null)
+		{
+			builder.setIsNicknameHidden(account.getIsNicknameHidden());
+		}
+		if (account.getMessageFilter() != null)
+		{
+			builder.setMessageFilter(account.getMessageFilter());
+		}
+		if (account.getShareForbiddenTime() != null)
+		{
+			builder.setShareForbiddenTime(account.getShareForbiddenTime());
+		}
+	}
+
+	public static void build(SSContact.Builder builder, ContactInfo contactInfo)
+	{
+		builder.setContactid(contactInfo.getContactId());
+		if (StringUtils.isNotEmpty(contactInfo.getAliasEmail()))
+		{
+			builder.addIdList(SSIdUtils.fromEmail(contactInfo.getAliasEmail()));
+		}
+		if (StringUtils.isNotEmpty(contactInfo.getUserId()))
+		{
+			builder.addIdList(SSIdUtils.fromUserId(contactInfo.getUserId()));
+		}
+		if (StringUtils.isNotEmpty(contactInfo.getAliasNickname()))
+		{
+			builder.setNickname(contactInfo.getAliasNickname());
+		}
+		if (StringUtils.isNotEmpty(contactInfo.getAliasPhoneNumber()))
+		{
+			builder.addIdList(SSIdUtils.fromPhone(contactInfo
+					.getAliasPhoneNumber()));
+		}
+	}
+
+	public static void build(SSGroup.Builder builder, GroupInfo groupInfo)
+	{
+		if (StringUtils.isNotEmpty(groupInfo.getGroupid()))
+		{
+			builder.setGroupid(groupInfo.getGroupid());
+		}
+		if (StringUtils.isNotEmpty(groupInfo.getName()))
+		{
+			builder.setName(groupInfo.getName());
+		}
+		if (groupInfo.getType() != null)
+		{
+			builder.setType(groupInfo.getType());
+		}
+	}
+
+	public static void build(SSMessage.Builder builder, final Message message)
+	{
+		if (StringUtils.isNotEmpty(message.getMsgid()))
+		{
+			builder.setMsgid(message.getMsgid());
+		}
+		if (StringUtils.isNotEmpty(message.getAgent()))
+		{
+			builder.setAgent(message.getAgent());
+		}
+		if (message.getTimestamp() != null)
+		{
+			builder.setTimestamp(message.getTimestamp());
+		}
+		if (StringUtils.isNotEmpty(message.getSender()))
+		{
+			builder.setSender(SSIdUtils.parseSingle(message.getSender()));
+		}
+		if (StringUtils.isNotEmpty(message.getReceivers()))
+		{
+			// builder.addAllReceivers(SSIdUtils.parse(message.getReceivers()));
+			List<SSPerson.Builder> persons = new ArrayList<SSPerson.Builder>();
+			try
+			{
+				JsonFormat.merge(message.getReceivers(),
+						ApiExtensionHelper.getExtensionRegistry(),
+						SSPerson.newBuilder(), (List) persons);
+				if (persons.size() > 0)
+				{
+					for (SSPerson.Builder person : persons)
+					{
+						builder.addReceiver(person);
+					}
+				}
+			}
+			catch (ParseException e)
+			{
+
+				// 为了兼容旧数据
+				for (SSId ssid : SSIdUtils.parse(message.getReceivers()))
+				{
+					if (SSIdUtils.isEmpty(ssid))
+					{
+						continue;
+					}
+
+					SSPerson.Builder person = SSPerson.newBuilder();
+					if (SSIdUtils.isUserId(ssid))
+					{
+						person.setUserid(ssid.getId());
+					}
+					else if (SSIdUtils.isEmailId(ssid))
+					{
+						person.setEmail(ssid.getId());
+					}
+					else if (SSIdUtils.isPhoneId(ssid))
+					{
+						person.setPhone(ssid.getId());
+					}
+					builder.addReceiver(person);
+				}
+			}
+		}
+		if ((message.getContent() != null) && (message.getContent().length > 0))
+		{
+			try
+			{
+				builder.setBody(new String(message.getContent(),
+						Command.encoding));
+			}
+			catch (UnsupportedEncodingException e)
+			{
+				logger.error("Can't build body.", e);
+			}
+		}
+		if (message.getMsgType() != null)
+		{
+			builder.setMsgType(message.getMsgType());
+		}
+		if (message.getShareType() != null)
+		{
+			builder.setShareType(message.getShareType());
+		}
+		if (StringUtils.isNotEmpty(message.getRootId()))
+		{
+			builder.setRootId(message.getRootId());
+		}
+		if (StringUtils.isNotEmpty(message.getParentId()))
+		{
+			builder.setParentId(message.getParentId());
+		}
+		if (StringUtils.isNotEmpty(message.getTags()))
+		{
+			builder.addAllTags(Command.split(message.getTags()));
+		}
+
+		if (message.getMsgState() != null)
+		{
+			builder.setMsgState(message.getMsgState());
+		}
+
+	}
+
+	public static void build(SSProfile.Builder builder, Profile profile)
+	{
+		if (StringUtils.isNotEmpty(profile.getUserid()))
+		{
+			builder.setUserid(profile.getUserid());
+		}
+		if (profile.getBirthday() != null)
+		{
+			builder.setBirthday(profile.getBirthday());
+		}
+		if (profile.getGender() != null)
+		{
+			builder.setGender(SSGender.valueOf(profile.getGender()));
+		}
+		if ((profile.getIcon() != null) && (profile.getIcon().length > 0))
+		{
+			builder.setIcon(ByteString.copyFrom(profile.getIcon()));
+		}
+		if (StringUtils.isNotEmpty(profile.getIconAddress()))
+		{
+			builder.setIconAddress(profile.getIconAddress());
+		}
+		if (StringUtils.isNotEmpty(profile.getNickname()))
+		{
+			builder.setNickname(profile.getNickname());
+		}
+		if (StringUtils.isNotEmpty(profile.getIntroduction()))
+		{
+			builder.setIntroduction(profile.getIntroduction());
+		}
+
+		if (StringUtils.isNotEmpty(profile.getCountry()))
+		{
+			builder.setCountry(profile.getCountry());
+		}
+		if (StringUtils.isNotEmpty(profile.getProvince()))
+		{
+			builder.setProvince(profile.getProvince());
+		}
+		if (StringUtils.isNotEmpty(profile.getCity()))
+		{
+			builder.setCity(profile.getCity());
+		}
+		if (StringUtils.isNotEmpty(profile.getEducation()))
+		{
+			builder.setEducation(profile.getEducation());
+		}
+		if (StringUtils.isNotEmpty(profile.getWork_experience()))
+		{
+			builder.setWorkExperience(profile.getWork_experience());
+		}
+
+		if (profile.getFollowerCount() != null)
+		{
+			builder.setFollowerCount(profile.getFollowerCount());
+		}
+		if (profile.getFollowingCount() != null)
+		{
+			builder.setFollowingCount(profile.getFollowingCount());
+		}
+
+		if (StringUtils.isNotEmpty(profile.getFavTags()))
+		{
+			builder.addAllFavTags(Command.split(profile.getFavTags()));
+		}
+	}
+
+	public static String genContactId()
+	{
+		return genGuid();
+	}
+
+	public static String genGroupId()
+	{
+		return genGuid();
+	}
+
+	public static String genGuid()
+	{
+		byte[] array = GuidGenerator.guidAsBytes().array();
+
+		StringBuilder sb = new StringBuilder();
+		for (int j = 0; j < array.length; ++j)
+		{
+			int b = array[j] & 0xFF;
+			if (b < 0x10)
+			{
+				sb.append('0');
+			}
+			sb.append(Integer.toHexString(b));
+		}
+		return sb.toString();
+	}
+
+	public static String genMaxMessageId(long number)
+	{
+		return genMessageId("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz", number);
+	}
+
+	public static String genMessageId(String userid, long number)
+	{
+		return String.format("%1$016X%2$s", number, userid);
+	}
+
+	public static String genMinMessageId(long number)
+	{
+		return genMessageId("00000000000000000000000000000000", number);
+	}
+
+	public static String genUserId()
+	{
+		// 用GUID作为用户ID
+		return genGuid();
+	}
+
+	private Keyspace cassandra;
+
+	private ExecutorService repairService;
+
+	public DataServiceImpl(Keyspace cassandra)
+	{
+		this.cassandra = cassandra;
+	}
+
+	@SuppressWarnings("unchecked")
+	public String AddMessage(SSMessage ssmessage, SSShareType shareType,
+			Long timestamp) throws DALException
+	{
+		CreateCommand command = new CreateCommand(cassandra)
+				.Object(Message.CN_MESSAGE);
+
+		if (shareType != null)
+		{
+		}
+		else if (ssmessage.hasShareType())
+		{
+			shareType = SSShareType.valueOf(ssmessage.getShareType());
+		}
+		else
+		{
+			shareType = SSShareType.SHARE_TYPE_UNKNOWN;
+		}
+
+		if (timestamp != null)
+		{
+		}
+		else if (ssmessage.hasTimestamp())
+		{
+			timestamp = ssmessage.getTimestamp();
+		}
+		else
+		{
+			timestamp = System.currentTimeMillis();
+		}
+
+		String msgid = null;
+		if (msgid != null)
+		{
+		}
+		else if (ssmessage.hasMsgid())
+		{
+			msgid = ssmessage.getMsgid();
+			if (!msgid.endsWith(ssmessage.getSender().getId()))
+			{
+				throw new DALException("MSGID is invalid.");
+			}
+			if (msgid.length() <= 16)
+			{
+				throw new DALException("MSGID is invalid.");
+			}
+		}
+		else
+		{
+			msgid = genMessageId(ssmessage.getSender().getId(), timestamp);
+		}
+
+		if (msgid == null)
+		{
+			throw new DALException("MSGID is invalid.");
+		}
+
+		command.Where(msgid);
+
+		if (msgid != null)
+		{
+			command.Insert(Message.FN_MSGID, msgid);
+		}
+		if (ssmessage.getAgent() != null)
+		{
+			command.Insert(Message.FN_AGENT, ssmessage.getAgent());
+		}
+		if (timestamp != null)
+		{
+			command.Insert(Message.FN_TIMESTAMP, timestamp);
+		}
+		if (ssmessage.hasSender())
+		{
+			command.Insert(Message.FN_SENDER,
+					SSIdUtils.toString(ssmessage.getSender()));
+		}
+		if (ssmessage.getReceiverCount() > 0)
+		{
+			command.Insert(Message.FN_RECEIVERS, JsonFormat
+					.printToString((List) ssmessage.getReceiverList()));
+		}
+		if (ssmessage.hasBody())
+		{
+			command.Insert(Message.FN_CONTENT,
+					Command.toByteArray(ssmessage.getBody()));
+		}
+		if (ssmessage.hasParentId())
+		{
+			command.Insert(Message.FN_PARENT_ID, ssmessage.getParentId());
+		}
+		if (ssmessage.hasRootId())
+		{
+			command.Insert(Message.FN_ROOT_ID, ssmessage.getRootId());
+		}
+		if (ssmessage.getTagsCount() > 0)
+		{
+			command.Insert(Message.FN_TAGS,
+					Command.join(ssmessage.getTagsList()));
+		}
+		if ((shareType != null)
+				&& (shareType != SSShareType.SHARE_TYPE_UNKNOWN))
+		{
+			command.Insert(Message.FN_SHARE_TYPE, shareType.getNumber());
+		}
+		if (ssmessage.hasMsgType())
+		{
+			command.Insert(Message.FN_MSG_TYPE, ssmessage.getMsgType());
+		}
+		if (ssmessage.hasMsgState() && (ssmessage.getMsgState() != 0))
+		{
+			command.Insert(Message.FN_MSG_STATE, ssmessage.getMsgState());
+		}
+
+		command.execute();
+
+		return msgid;
+	}
+
+	public Map<String, Account> getAccount(List<String> userid)
+			throws DALException
+	{
+		ReadCommand command = new ReadCommand(cassandra,
+				ConsistencyLevel.QUORUM).Object(Account.class).Select()
+				.Where(userid.toArray(new String[userid.size()]));
+		return command.<Account> execute();
+	}
+
+	public Account getAccount(String userid) throws DALException
+	{
+		Map<String, Account> accounts = getAccount(Arrays.asList(userid));
+		if (accounts == null)
+		{
+			return null;
+		}
+		return accounts.get(userid);
+	}
+
+	public Map<String, Account> getAccountByEmail(List<String> emails)
+			throws DALException
+	{
+		ReadCommand command = new ReadCommand(cassandra,
+				ConsistencyLevel.QUORUM).Object(EmailAccount.class).Select();
+		for (String email : emails)
+		{
+			if (!email.isEmpty())
+			{
+				command.Where(email);
+			}
+		}
+		Map<String, EmailAccount> emailAccounts = command
+				.<EmailAccount> execute();
+		if (emailAccounts == null)
+		{
+			return null;
+		}
+		List<String> userids = new ArrayList<String>();
+		for (EmailAccount emailAccount : emailAccounts.values())
+		{
+			userids.add(emailAccount.getUserid());
+		}
+		return getAccount(userids);
+	}
+
+	public Map<String, Account> getAccountByPhone(List<String> phoneNumbers)
+			throws DALException
+	{
+		ReadCommand command = new ReadCommand(cassandra,
+				ConsistencyLevel.QUORUM).Object(PhoneAccount.class).Select();
+		for (String phoneNumber : phoneNumbers)
+		{
+			if (!phoneNumber.isEmpty())
+			{
+				command.Where(phoneNumber);
+			}
+		}
+		Map<String, PhoneAccount> phoneAccounts = command
+				.<PhoneAccount> execute();
+		if (phoneAccounts == null)
+		{
+			return null;
+		}
+		List<String> userids = new ArrayList<String>();
+		for (PhoneAccount phoneAccount : phoneAccounts.values())
+		{
+			userids.add(phoneAccount.getUserid());
+		}
+		return getAccount(userids);
+	}
+
+	public List<MessageInfo> getComment(String msgid, String cursor_id,
+			int count, BooleanHolder eol) throws DALException
+	{
+		ReadCommand command = new ReadCommand(cassandra,
+				ConsistencyLevel.QUORUM).Object(Comment.class).Select()
+				.Where(msgid);
+
+		if (eol != null)
+		{
+			eol.value = false;
+		}
+		if ((count != Integer.MAX_VALUE) && (count != Integer.MIN_VALUE)
+				&& (count != 0))
+		{
+			command.Limit(cursor_id, (count > 0 ? (count + 2) : (count - 2)));
+		}
+		else
+		{
+			if (eol != null)
+			{
+				eol.value = true;
+			}
+			command.Limit(cursor_id, count);
+		}
+
+		Comment comment = command.<Comment> execute().get(msgid);
+		if (comment == null)
+		{
+			return null;
+		}
+
+		List<MessageInfo> messageids = comment.getMessages();
+		if ((cursor_id != null) && (messageids.size() > 0))
+		{
+			if (messageids.get(0).getMsgid().equals(cursor_id))
+			{
+				messageids.remove(0);
+			}
+		}
+
+		if ((count != Integer.MAX_VALUE) && (count != Integer.MIN_VALUE)
+				&& (count != 0))
+		{
+			if (messageids.size() <= Math.abs(count))
+			{
+				if (eol != null)
+				{
+					eol.value = true;
+				}
+			}
+			else
+			{
+				do
+				{
+					messageids.remove(messageids.size() - 1);
+				} while (messageids.size() > Math.abs(count));
+			}
+		}
+
+		return messageids;
+	}
+
+	public List<SSContact> getContact(String userid) throws DALException
+	{
+		ReadCommand command = new ReadCommand(cassandra).Object(Contact.class)
+				.Where(userid).Select();
+		Contact contact = (Contact) command.execute().get(userid);
+		if (contact == null)
+		{
+			return null;
+		}
+
+		List<SSContact> ssContactList = new ArrayList<SSContact>();
+		for (ContactInfo contactInfo : contact.getContacts())
+		{
+			SSContact.Builder builder = SSContact.newBuilder();
+			build(builder, contactInfo);
+			ssContactList.add(builder.build());
+		}
+
+		return ssContactList;
+	}
+
+	public List<FollowInfo> getFollower(String userid,
+			Collection<String> followerid) throws DALException
+	{
+		ReadCommand command = new ReadCommand(cassandra,
+				ConsistencyLevel.QUORUM).Object(Follower.class).Where(userid);
+		for (String s : followerid)
+		{
+			command.Select(s);
+		}
+		Follower follower = command.<Follower> execute().get(userid);
+		if (follower == null)
+		{
+			return Collections.emptyList();
+		}
+		return follower.getFollowers();
+	}
+
+	public List<FollowInfo> getFollower(String userid, String cursor_id,
+			int count, BooleanHolder eol) throws DALException
+	{
+		ReadCommand command = new ReadCommand(cassandra,
+				ConsistencyLevel.QUORUM).Object(Follower.class).Select()
+				.Where(userid);
+
+		if (eol != null)
+		{
+			eol.value = false;
+		}
+		if ((count != Integer.MAX_VALUE) && (count != Integer.MIN_VALUE)
+				&& (count != 0))
+		{
+			command.Limit(cursor_id, (count > 0 ? (count + 2) : (count - 2)));
+		}
+		else
+		{
+			if (eol != null)
+			{
+				eol.value = true;
+			}
+			command.Limit(cursor_id, count);
+		}
+
+		Follower follower = command.<Follower> execute().get(userid);
+		if (follower == null)
+		{
+			return null;
+		}
+
+		List<FollowInfo> followerids = follower.getFollowers();
+		if ((cursor_id != null) && (followerids.size() > 0))
+		{
+			if (followerids.get(0).getUserid().equals(cursor_id))
+			{
+				followerids.remove(0);
+			}
+		}
+
+		if ((count != Integer.MAX_VALUE) && (count != Integer.MIN_VALUE)
+				&& (count != 0))
+		{
+			if (followerids.size() <= Math.abs(count))
+			{
+				if (eol != null)
+				{
+					eol.value = true;
+				}
+			}
+			else
+			{
+				do
+				{
+					followerids.remove(followerids.size() - 1);
+				} while (followerids.size() > Math.abs(count));
+			}
+		}
+
+		return followerids;
+	}
+
+	public List<FollowInfo> getFollowing(String userid) throws DALException
+	{
+		ReadCommand command = new ReadCommand(cassandra,
+				ConsistencyLevel.QUORUM).Object(Following.class).Where(userid)
+				.Select();
+		Following following = (Following) command.execute().get(userid);
+		if (following == null)
+		{
+			return null;
+		}
+
+		List<FollowInfo> followings = following.getFollowings();
+		if (followings != null)
+		{
+			Collections.sort(followings,
+					Collections.reverseOrder(new Comparator<FollowInfo>()
+					{
+						@Override
+						public int compare(FollowInfo o1, FollowInfo o2)
+						{
+							if (o1.getTimestamp() == null)
+							{
+								if (o2.getTimestamp() == null)
+								{
+									return 0;
+								}
+								return -1;
+							}
+							if (o2.getTimestamp() == null)
+							{
+								return 1;
+							}
+							return (int) (o1.getTimestamp() - o2.getTimestamp());
+						};
+					}));
+		}
+
+		return following.getFollowings();
+	}
+
+	public List<InviteInfo> getInviter(String userid) throws DALException
+	{
+		Account account = getAccount(userid);
+		if (account == null)
+		{
+			return null;
+		}
+
+		ReadCommand command = new ReadCommand(cassandra).Object(Inviter.class);
+		if (account.getEmail() != null)
+		{
+			command.Where(account.getEmail());
+		}
+		if (account.getPhoneNumber() != null)
+		{
+			command.Where(account.getPhoneNumber());
+		}
+		command.Select();
+
+		Map<String, Inviter> resultmap = command.<Inviter> execute();
+		if (resultmap == null)
+		{
+			return null;
+		}
+
+		List<InviteInfo> inviter_list = new ArrayList<InviteInfo>();
+
+		if (account.getEmail() != null)
+		{
+			Inviter inviter = resultmap.get(account.getEmail());
+			if (inviter != null)
+			{
+				inviter_list.addAll(inviter.getInviters());
+			}
+		}
+		if (account.getPhoneNumber() != null)
+		{
+			Inviter inviter = resultmap.get(account.getPhoneNumber());
+			if (inviter != null)
+			{
+				inviter_list.addAll(inviter.getInviters());
+			}
+		}
+
+		return inviter_list;
+	}
+
+	public List<InviteInfo> getInviting(String userid) throws DALException
+	{
+		ReadCommand command = new ReadCommand(cassandra).Object(Inviting.class)
+				.Where(userid).Select();
+		Inviting inviting = (Inviting) command.execute().get(userid);
+		if (inviting == null)
+		{
+			return null;
+		}
+
+		return inviting.getInvitings();
+	}
+
+	public List<Message> getMessage(List<String> messageid_list)
+			throws DALException
+	{
+		String[] idlist = new String[messageid_list.size()];
+		int i = 0;
+		for (String id : messageid_list)
+		{
+			idlist[i] = MessageUtils.normalizeMessageId(id);
+			i++;
+		}
+		ReadCommand readMessageCommand = new ReadCommand(cassandra)
+				.Object(Message.class).Select().Where(idlist);
+		Map<String, Message> messages = readMessageCommand.execute();
+		if (messages == null)
+		{
+			return null;
+		}
+		return new ArrayList<Message>(messages.values());
+	}
+
+	public Message getMessage(String messageid) throws DALException
+	{
+		ReadCommand readMessageCommand = new ReadCommand(cassandra)
+				.Object(Message.class).Select().Where(messageid);
+		Map<String, Message> messages = readMessageCommand.execute();
+		if (messages == null)
+		{
+			return null;
+		}
+		return messages.get(messageid);
+	}
+
+	public List<SSMessage> getMessage(String userid, SSBOX ssbox,
+			String cursor_id, int count, BooleanHolder eol) throws DALException
+	{
+
+		List<MessageInfo> messageids = getMessageIdList(userid, ssbox,
+				cursor_id, count, eol);
+
+		ReadCommand readMessageCommand = new ReadCommand(cassandra).Object(
+				Message.class).Select();
+		for (MessageInfo mi : messageids)
+		{
+			readMessageCommand.Where(mi.getMsgid());
+		}
+		Map<String, Message> messages = readMessageCommand.execute();
+		if (messages == null)
+		{
+			return null;
+		}
+		List<SSMessage> ssmessages = new ArrayList<SSMessage>();
+		for (MessageInfo messageid : messageids)
+		{
+
+			Message message = messages.get(messageid.getMsgid());
+			if (message == null)
+			{
+				continue;
+			}
+
+			SSMessage.Builder builder = SSMessage.newBuilder();
+			build(builder, message);
+			ssmessages.add(builder.build());
+		}
+		return ssmessages;
+	}
+
+	public List<SSMessage> getMessage(String userid, SSBOX ssbox,
+			String cursor_id, String limit, int count, BooleanHolder eol)
+			throws DALException
+	{
+		List<MessageInfo> messageids = getMessageIdList(userid, ssbox,
+				cursor_id, limit, count, eol);
+
+		ReadCommand readMessageCommand = new ReadCommand(cassandra).Object(
+				Message.class).Select();
+		for (MessageInfo mi : messageids)
+		{
+			readMessageCommand.Where(mi.getMsgid());
+		}
+		Map<String, Message> messages = readMessageCommand.execute();
+		if (messages == null)
+		{
+			return null;
+		}
+		List<SSMessage> ssmessages = new ArrayList<SSMessage>();
+		for (MessageInfo messageid : messageids)
+		{
+
+			Message message = messages.get(messageid.getMsgid());
+			if (message == null)
+			{
+				continue;
+			}
+
+			SSMessage.Builder builder = SSMessage.newBuilder();
+			build(builder, message);
+			ssmessages.add(builder.build());
+		}
+		return ssmessages;
+	}
+
+	public List<MessageInfo> getMessageIdList(String userid, SSBOX ssbox,
+			String cursor_id, int count, BooleanHolder eol) throws DALException
+	{
+		return getMessageIdList(userid, ssbox, cursor_id, null, count, eol);
+	}
+
+	public List<MessageInfo> getMessageIdList(String userid, SSBOX ssbox,
+			String cursor_id, String limit, int count, BooleanHolder eol)
+			throws DALException
+	{
+		// logger.info("userid: " + userid);
+		// logger.info("ssbox: " + ssbox.name());
+		// logger.info("cursor_id: " + cursor_id);
+		// logger.info("limit: " + limit);
+		// logger.info("count: " + count);
+
+		ReadCommand command = new ReadCommand(cassandra);
+		if (ssbox == SSBOX.PUBBOX)
+		{
+			command.Object(PubBox.class);
+		}
+		else if (ssbox == SSBOX.OUTBOX)
+		{
+			command.Object(OutBox.class);
+		}
+		else if (ssbox == SSBOX.INBOX)
+		{
+			command.Object(InBox.class);
+		}
+		else if (ssbox == SSBOX.FAVBOX)
+		{
+			command.Object(Favorite.class);
+		}
+		command.Select().Where(userid);
+
+		if (eol != null)
+		{
+			eol.value = false;
+		}
+		if (count == Integer.MAX_VALUE)
+		{
+			if (eol != null)
+			{
+				eol.value = true;
+			}
+			command.Limit(cursor_id, limit, Integer.MAX_VALUE);
+		}
+		else if (count == (Integer.MAX_VALUE - 1))
+		{
+			if (eol != null)
+			{
+				eol.value = true;
+			}
+			command.Limit(cursor_id, limit, Integer.MAX_VALUE);
+		}
+		else if (count == Integer.MIN_VALUE)
+		{
+			if (eol != null)
+			{
+				eol.value = true;
+			}
+			command.Limit(cursor_id, limit, Integer.MIN_VALUE);
+		}
+		else if (count == (Integer.MIN_VALUE + 1))
+		{
+			if (eol != null)
+			{
+				eol.value = true;
+			}
+			command.Limit(cursor_id, limit, Integer.MIN_VALUE);
+		}
+		else
+		{
+			command.Limit(cursor_id, limit, (count >= 0 ? (count + 2)
+					: (count - 2)));
+		}
+
+		// if (count != Integer.MAX_VALUE && count != Integer.MIN_VALUE && count
+		// != 0) {
+		// command.Limit(cursor_id, limit, (count > 0 ? (count + 2) : (count -
+		// 2)));
+		// } else {
+		// if (eol != null)
+		// eol.value = true;
+		// command.Limit(cursor_id, limit, count);
+		// }
+
+		Map<String, Object> r = command.execute();
+		if (r == null)
+		{
+			return null;
+		}
+		Object obj = r.get(userid);
+		if (obj == null)
+		{
+			return null;
+		}
+		List<MessageInfo> messageids = new ArrayList<MessageInfo>();
+		if (ssbox == SSBOX.PUBBOX)
+		{
+			PubBox pubbox = (PubBox) obj;
+			messageids.addAll(pubbox.getMessages());
+		}
+		else if (ssbox == SSBOX.OUTBOX)
+		{
+			OutBox outbox = (OutBox) obj;
+			messageids.addAll(outbox.getMessages());
+		}
+		else if (ssbox == SSBOX.INBOX)
+		{
+			InBox inbox = (InBox) obj;
+			messageids.addAll(inbox.getMessages());
+		}
+		else if (ssbox == SSBOX.FAVBOX)
+		{
+			Favorite favorite = (Favorite) obj;
+			messageids.addAll(favorite.getMessages());
+		}
+
+		// StringBuilder sb = new StringBuilder();
+		// sb.append("original messageids.\n");
+		// for (MessageInfo msgid : messageids) {
+		// sb.append("messageid: ").append(msgid.getMsgid()).append("\n");
+		// }
+		// logger.info(sb.toString());
+
+		if ((cursor_id != null) && (messageids.size() > 0))
+		{
+			if (messageids.get(0).getMsgid().equals(cursor_id))
+			{
+				messageids.remove(0);
+			}
+		}
+
+		if ((count != Integer.MAX_VALUE) && (count != Integer.MIN_VALUE))
+		{
+			if (messageids.size() <= Math.abs(count))
+			{
+				if (eol != null)
+				{
+					eol.value = true;
+				}
+			}
+			else
+			{
+				do
+				{
+					messageids.remove(messageids.size() - 1);
+				} while (messageids.size() > Math.abs(count));
+			}
+		}
+
+		return messageids;
+	}
+
+	public List<MessageInfo> getMessageIdListByTimestamp(String userid,
+			SSBOX ssbox, long start, long end, int count) throws DALException
+	{
+		String cursorId = null;
+		String limit = null;
+		if (start < end)
+		{
+			cursorId = DataServiceImpl.genMaxMessageId(start);
+			limit = DataServiceImpl.genMaxMessageId(end);
+		}
+		else
+		{
+			cursorId = DataServiceImpl.genMinMessageId(start);
+			limit = DataServiceImpl.genMinMessageId(end);
+			count = -count;
+		}
+		return getMessageIdList(userid, ssbox, cursorId, limit, count, null);
+	}
+
+	// flag: // 0表示只获取头像信息；1，表示获取除icon之外的其他信息；2，表示获取profile的所有信息。
+	public List<Profile> getProfile(List<String> userid_list, int flag)
+			throws DALException
+	{
+
+		ReadCommand command = new ReadCommand(cassandra).Object(Profile.class)
+				.Where(userid_list.toArray(new String[0]));
+		if (flag == 0)
+		{
+			command.Select(Profile.FN_ICON);
+			command.Select(Profile.FN_ICON_ADDRESS);
+		}
+		else if (flag == 1)
+		{
+			command.Select(Profile.FN_BIRTHDAY);
+			command.Select(Profile.FN_GENDER);
+			command.Select(Profile.FN_NICKNAME);
+			command.Select(Profile.FN_INTRODUCTION);
+			command.Select(Profile.FN_COUNTRY);
+			command.Select(Profile.FN_PROVINCE);
+			command.Select(Profile.FN_CITY);
+			command.Select(Profile.FN_EDUCATION);
+			command.Select(Profile.FN_WORK_EXPERIENCE);
+			command.Select(Profile.FN_FOLLOWING_COUNT);
+			command.Select(Profile.FN_FOLLOWER_COUNT);
+			command.Select(Profile.FN_FAV_TAGS);
+		}
+		else if (flag >= 2)
+		{
+			command.Select();
+		}
+
+		Map<String, Profile> map = command.<Profile> execute();
+		if (map == null)
+		{
+			return null;
+		}
+
+		return new ArrayList<Profile>(map.values());
+	}
+
+	public ExecutorService getRepairService()
+	{
+		return repairService;
+	}
+
+	public String getUserIdByEmail(String email) throws DALException
+	{
+		ReadCommand command = new ReadCommand(cassandra,
+				ConsistencyLevel.QUORUM).Object(EmailAccount.class)
+				.Select(EmailAccount.FN_USERID).Where(email);
+		EmailAccount account = null;
+		try
+		{
+			Map<String, EmailAccount> resultmap = command
+					.<EmailAccount> execute();
+			if (resultmap == null)
+			{
+				return null;
+			}
+			account = resultmap.get(email);
+		}
+		catch (DALException e)
+		{
+			throw e;
+		}
+		if (account == null)
+		{
+			return null;
+		}
+		return account.getUserid();
+	}
+
+	public String getUserIdByPhone(String phoneNumber) throws DALException
+	{
+		ReadCommand command = new ReadCommand(cassandra,
+				ConsistencyLevel.QUORUM).Object(PhoneAccount.class)
+				.Select(PhoneAccount.FN_USERID).Where(phoneNumber);
+		PhoneAccount account = null;
+		try
+		{
+			Map<String, PhoneAccount> resultmap = command
+					.<PhoneAccount> execute();
+			if (resultmap == null)
+			{
+				return null;
+			}
+			account = resultmap.get(phoneNumber);
+		}
+		catch (DALException e)
+		{
+			throw e;
+		}
+		if (account == null)
+		{
+			return null;
+		}
+		return account.getUserid();
+	}
+
+	public boolean isExistAccount(String userid) throws DALException
+	{
+		ReadCommand command = new ReadCommand(cassandra,
+				ConsistencyLevel.QUORUM).Object(Account.class)
+				.Select(Account.FN_USERID).Where(userid);
+		Account account = null;
+		try
+		{
+			Map<String, Account> resultmap = command.<Account> execute();
+			if (resultmap == null)
+			{
+				return false;
+			}
+			account = resultmap.get(userid);
+		}
+		catch (DALException e)
+		{
+			throw e;
+		}
+		if (account == null)
+		{
+			return false;
+		}
+		return true;
+	}
+
+	public boolean isExistAccountByEmail(String email) throws DALException
+	{
+		return getUserIdByEmail(email) != null;
+	}
+
+	public boolean isExistAccountByPhone(String phoneNumber)
+			throws DALException
+	{
+		return getUserIdByPhone(phoneNumber) != null;
+	}
+
+	public List<FollowInfo> isFollower(String userid,
+			Collection<String> followerid) throws DALException
+	{
+		ReadCommand command = new ReadCommand(cassandra)
+				.Object(Following.class).Select(userid);
+		for (String s : followerid)
+		{
+			command.Where(s);
+		}
+		Map<String, Following> followings = command.<Following> execute();
+		if (followings == null)
+		{
+			return Collections.emptyList();
+		}
+		List<FollowInfo> result = new ArrayList<FollowInfo>();
+		for (String k : followings.keySet())
+		{
+			List<FollowInfo> v = followings.get(k).getFollowings();
+			if (v != null)
+			{
+				for (FollowInfo fi : v)
+				{
+					fi.setUserid(k);
+					result.add(fi);
+				}
+			}
+		}
+		return result;
+	}
+
+	// public List<String> isFollower(String userid, Collection<String>
+	// followerid) throws DALException {
+	// ReadCommand command =
+	// new ReadCommand(cassandra)
+	// .Object(Following.class)
+	// .Select(userid);
+	// for (String s : followerid) {
+	// command.Where(s);
+	// }
+	// Map<String, Following> followings = command.<Following>execute();
+	// if (followings == null) {
+	// return Collections.emptyList();
+	// }
+	// List<String> result = new ArrayList<String>();
+	// for (String k : followings.keySet()) {
+	// List<FollowInfo> v = followings.get(k).getFollowings();
+	// if (v != null)
+	// result.add(k);
+	// }
+	// return result;
+	// }
+
+	public List<FollowInfo> isFollowing(String userid,
+			Collection<String> followingid) throws DALException
+	{
+		ReadCommand command = new ReadCommand(cassandra)
+				.Object(Following.class).Where(userid);
+		for (String s : followingid)
+		{
+			command.Select(s);
+		}
+		Map<String, Following> followings = command.<Following> execute();
+		if (followings == null)
+		{
+			return Collections.emptyList();
+		}
+		List<FollowInfo> result = new ArrayList<FollowInfo>();
+		for (String k : followings.keySet())
+		{
+			List<FollowInfo> v = followings.get(k).getFollowings();
+			if (v != null)
+			{
+				result.addAll(v);
+			}
+		}
+		return result;
+	}
+
+	public void setRepairService(ExecutorService repairService)
+	{
+		this.repairService = repairService;
+	}
+
+	@SuppressWarnings("unchecked")
+	public void UpdateMessage(String msgid, SSMessage ssmessage)
+			throws DALException
+	{
+		CreateCommand command = new CreateCommand(cassandra).Object(
+				Message.CN_MESSAGE).Where(msgid);
+
+		if (ssmessage.hasAgent())
+		{
+			command.Insert(Message.FN_AGENT, ssmessage.getAgent());
+		}
+		if (ssmessage.hasTimestamp())
+		{
+			command.Insert(Message.FN_TIMESTAMP, ssmessage.getTimestamp());
+		}
+		if (ssmessage.hasSender())
+		{
+			command.Insert(Message.FN_SENDER,
+					SSIdUtils.toString(ssmessage.getSender()));
+		}
+		if (ssmessage.getReceiverCount() > 0)
+		{
+			command.Insert(Message.FN_RECEIVERS, JsonFormat
+					.printToString((List) ssmessage.getReceiverList()));
+		}
+		if (ssmessage.hasBody())
+		{
+			command.Insert(Message.FN_CONTENT,
+					Command.toByteArray(ssmessage.getBody()));
+		}
+		if (ssmessage.hasParentId())
+		{
+			command.Insert(Message.FN_PARENT_ID, ssmessage.getParentId());
+		}
+		if (ssmessage.hasRootId())
+		{
+			command.Insert(Message.FN_ROOT_ID, ssmessage.getRootId());
+		}
+		if (ssmessage.getTagsCount() > 0)
+		{
+			command.Insert(Message.FN_TAGS,
+					Command.join(ssmessage.getTagsList()));
+		}
+		if (ssmessage.hasShareType())
+		{
+			command.Insert(Message.FN_SHARE_TYPE, ssmessage.getShareType());
+		}
+		if (ssmessage.hasMsgType())
+		{
+			command.Insert(Message.FN_MSG_TYPE, ssmessage.getMsgType());
+		}
+		if (ssmessage.hasMsgState())
+		{
+			command.Insert(Message.FN_MSG_STATE, ssmessage.getMsgState());
+		}
+
+		command.execute();
+	}
+}
